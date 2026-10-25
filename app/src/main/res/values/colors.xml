@@ -1,0 +1,18 @@
+<resources>
+    <color name="primary">#1B5E20</color>
+    <color name="primary_dark">#0E3813</color>
+    <color name="primary_light">#E8F5E9</color>
+    <color name="accent">#4CAF50</color>
+    <color name="accent_light">#C8E6C9</color>
+    <color name="text_main">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="background">#F5F7FA</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="border">#E0E0E0</color>
+    <color name="checked_green">#2E7D32</color>
+    <color name="checked_bg">#DCEDC8</color>
+    <color name="unchecked_bg">#F5F5F5</color>
+    <color name="chip_border">#BDBDBD</color>
+    <color name="badge_bg">#E3F2FD</color>
+    <color name="badge_text">#1565C0</color>
+</resources>

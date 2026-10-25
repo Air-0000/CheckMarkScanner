@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">打钩识别与Excel核对助手</string>
+    <string name="take_photo">拍照识别</string>
+    <string name="pick_photo">相册导入</string>
+    <string name="load_sample">加载示例</string>
+    <string name="export_excel">导出Excel</string>
+    <string name="copy_summary">复制明细</string>
+    <string name="tab_records">名单核对</string>
+    <string name="tab_image">原图对齐</string>
+    <string name="tab_summary">Excel映射统计</string>
+    <string name="search_hint">搜索姓名或车牌...</string>
+</resources>
