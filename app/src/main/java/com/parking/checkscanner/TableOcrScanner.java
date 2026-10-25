@@ -12,6 +12,8 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,6 +37,9 @@ public class TableOcrScanner {
 
     private static final Pattern DIGIT_PATTERN = Pattern.compile("^\\s*(\\d{1,3})\\s*$");
     private static final Pattern CHINESE_NAME_PATTERN = Pattern.compile("^[\\u4e00-\\u9fa5]{2,4}$");
+
+    // 至少几个序号数字指向同一起始序号，才据此改写整页编号
+    private static final int MIN_START_VOTES = 2;
 
     public static class OcrResult {
         public String tableTitle = null;
@@ -137,6 +142,9 @@ public class TableOcrScanner {
         }
 
         // 4. 将提取的文本映射至对应的物理数据行
+        // 序号数字不直接写入所在行：拍照透视会让左侧文字整体比网格线 (取自打钩区左缘) 偏下近半行，
+        // 数字常落进下一行，导致相邻两行同号。改为每个数字投一票「本页起始序号 = 数字 - 行号」，第 5 步统一编号。
+        Map<Integer, Integer> startVotes = new TreeMap<>();
         for (TextItem item : leftItems) {
             String text = item.text;
             if (text.isEmpty()) continue;
@@ -168,11 +176,11 @@ public class TableOcrScanner {
                 try {
                     int idx = Integer.parseInt(digitMatcher.group(1));
                     if (idx > 0 && idx <= 500) {
-                        rec.setIndex(idx);
-                        outResult.recognizedItemCount++;
-                        if (outResult.detectedStartIdx < 0 || r == 0) {
-                            outResult.detectedStartIdx = idx;
+                        int voteStart = idx - r;
+                        if (voteStart >= 1) {
+                            startVotes.merge(voteStart, 1, Integer::sum);
                         }
+                        outResult.recognizedItemCount++;
                         continue;
                     }
                 } catch (Exception ignored) {}
@@ -196,16 +204,16 @@ public class TableOcrScanner {
             }
         }
 
-        // 5. 序号自增平滑修正 (若偶有某行序号因折痕反光漏检，自动按连续递增推算补全)
-        int lastKnownIdx = -1;
+        // 5. 按投票选出的起始序号整页连续编号 (纸质表序号逐行 +1，保证同页严格递增、不重复；漏检行自然补全)
+        int defaultStartIdx = (fallbackRecords != null && !fallbackRecords.isEmpty()) ? fallbackRecords.get(0).getIndex() : 1;
+        int startIdx = resolveStartIndex(startVotes, defaultStartIdx);
+        if (startIdx > 0) {
+            outResult.detectedStartIdx = startIdx;
+        } else {
+            startIdx = defaultStartIdx;
+        }
         for (int r = 0; r < records.size(); r++) {
-            ParkingRecord rec = records.get(r);
-            if (rec.getIndex() > 0) {
-                lastKnownIdx = rec.getIndex();
-            } else if (lastKnownIdx > 0) {
-                rec.setIndex(lastKnownIdx + 1);
-                lastKnownIdx = rec.getIndex();
-            }
+            records.get(r).setIndex(startIdx + r);
         }
 
         // 6. 根据实际 OCR 识别出的序号智能推算页面归属
@@ -218,8 +226,28 @@ public class TableOcrScanner {
         }
 
         outResult.records = records;
-        Log.i(TAG, "OCR 完成: 识别出 " + outResult.recognizedItemCount + " 项数据, 起始序号=" 
-            + outResult.detectedStartIdx + ", 推算页面=" + outResult.detectedPage + ", 标题=" + outResult.tableTitle);
+        Log.i(TAG, "OCR 完成: 识别出 " + outResult.recognizedItemCount + " 项数据, 起始序号="
+            + outResult.detectedStartIdx + " (投票 " + startVotes + ", 默认 " + defaultStartIdx + ")"
+            + ", 推算页面=" + outResult.detectedPage + ", 标题=" + outResult.tableTitle);
+    }
+
+    /**
+     * 从「数字 - 行号」投票中选出本页起始序号：票数最多者胜出，平票取最接近页面默认起始序号者。
+     * 最高票不足 MIN_START_VOTES 时 (只有零星数字，可能是误读) 不足以改写整页编号，返回 -1。
+     */
+    private static int resolveStartIndex(Map<Integer, Integer> votes, int defaultStartIdx) {
+        int best = -1;
+        int bestCount = 0;
+        for (Map.Entry<Integer, Integer> e : votes.entrySet()) {
+            int start = e.getKey();
+            int count = e.getValue();
+            if (count > bestCount
+                || (count == bestCount && Math.abs(start - defaultStartIdx) < Math.abs(best - defaultStartIdx))) {
+                best = start;
+                bestCount = count;
+            }
+        }
+        return bestCount >= MIN_START_VOTES ? best : -1;
     }
 
     private static int findRowIndex(int centerY, CheckmarkDetector.TableGrid grid, int imgH, int rowCount) {
