@@ -15,4 +15,10 @@
     <color name="chip_border">#BDBDBD</color>
     <color name="badge_bg">#E3F2FD</color>
     <color name="badge_text">#1565C0</color>
+    <color name="toolbar_subtitle">#C8E6C9</color>
+    <color name="surface_container_lowest">#FFFFFF</color>
+    <color name="surface_container_low">#F7F9F7</color>
+    <color name="surface_container">#F1F4F1</color>
+    <color name="surface_container_high">#EBEFEB</color>
+    <color name="surface_container_highest">#E4E9E4</color>
 </resources>

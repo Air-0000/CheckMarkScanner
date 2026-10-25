@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 页面切换标签 (单选)，由 MainActivity.buildPageViews() 动态添加到 chip_group_pages -->
+<com.google.android.material.chip.Chip xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Material3.Chip.Filter"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:checkable="true"
+    app:checkedIconVisible="false" />
