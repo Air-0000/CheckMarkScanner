@@ -336,6 +336,14 @@ public class TrainingDataCollector {
     }
 
     /**
+     * 在样本写入线程上统计并回调 (回调在该后台线程执行)，
+     * 保证排在之前提交的样本写入之后，计数不会滞后一次
+     */
+    public void getStatsAsync(Context context, java.util.function.Consumer<DatasetStats> callback) {
+        executor.execute(() -> callback.accept(getStats(context)));
+    }
+
+    /**
      * 获取当前本地累积的数据集统计信息
      */
     public DatasetStats getStats(Context context) {

@@ -19,10 +19,12 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -31,11 +33,17 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -44,6 +52,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final String TAG = "MainActivity";
 
     public static class PageItem {
         public int pageId; // 1, 2, 3, 4, 5
@@ -79,7 +89,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 5个实拍与示例图页面数据
+    // 5个实拍与示例图页面数据 (页面标签与纵览卡片均按此数组动态生成)
     private PageItem[] pageItems = new PageItem[] {
         new PageItem(1, "实拍图 1 · 第1页 (序号 1~39)", "实拍P1 (1~39)", "sample_p1.jpg", 1, 39),
         new PageItem(2, "实拍图 2 · 第2页 (序号 40~77)", "实拍P2 (40~77)", "sample_p2.jpg", 40, 38),
@@ -101,29 +111,32 @@ public class MainActivity extends AppCompatActivity {
     private int currentOffsetY = 0;
     private boolean showHelperGrid = false;
     private boolean showBadge = false; // 用户要求：默认仅展示框体，避免标号遮挡原图打钩细节
+    private boolean isBusy = false; // 后台识别进行中：禁用导入/导出与单格微调，避免与识别结果互相覆盖
     private Uri cameraImageUri = null;
     private String summaryText = "";
 
     // UI 组件
-    private Button btnSample, btnCamera, btnGallery, btnSensitivity, btnExportExcel, btnFillExcel, btnCopy;
-    private Button btnPageAll, btnPage1, btnPage2, btnPage3, btnPage4, btnPageSample;
-    private Button tabImage, tabRecords;
-    private Button btnCheckUpdate, btnTrainingData;
+    private MaterialToolbar toolbar;
+    private MaterialButton btnCamera, btnGallery, btnExport;
+    private MaterialButtonToggleGroup toggleView;
+    private Chip chipSensitivity, chipBadge, chipGrid;
+    private ChipGroup chipGroupPages;
+    private HorizontalScrollView scrollPageChips;
     private LinearLayout layoutImageView, layoutRecordsView;
-    private TextView tvStatMarks, tvStatPersons, tvStatusBadge, tvPreviewTip;
-    private Button btnToggleBadge, btnToggleGrid;
+    private TextView tvStatMarks, tvStatPersons, tvStatPages, tvStatusBadge, tvPreviewTip;
+    private LinearProgressIndicator progressBusy;
     private EditText etSearch;
     private RecyclerView rvRecords;
 
-    // 单图预览与多卡片预览
+    // 单图预览与多卡片纵览 (标签与卡片在 buildPageViews 中按 pageItems 生成)
     private ImageView ivPreview;
     private LinearLayout llAllImagesCards;
-    private CardView cardImg1, cardImg2, cardImg3, cardImg4, cardImg5;
-    private ImageView ivCard1, ivCard2, ivCard3, ivCard4, ivCard5;
-    private TextView tvCardTitle1, tvCardTitle2, tvCardTitle3, tvCardTitle4, tvCardTitle5;
-    private TextView tvCardMarks1, tvCardMarks2, tvCardMarks3, tvCardMarks4, tvCardMarks5;
+    private Chip[] pageChips;
+    private ImageView[] cardImages;
+    private TextView[] cardPlaceholders;
+    private TextView[] cardMarks;
 
-    private ActivityResultLauncher<Intent> galleryLauncher;
+    private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<Uri> cameraLauncher;
     private ActivityResultLauncher<String> cameraPermissionLauncher;
     private ActivityResultLauncher<Intent> excelPickerLauncher;
@@ -134,6 +147,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         initViews();
+        buildPageViews();
         setupLaunchers();
         setupEvents();
 
@@ -157,8 +171,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 默认显示效果预览视图 (全部图片纵览模式，仅框)
         switchTab(0);
-        updateToggleBadgeButton();
-        updatePageNavUI(0);
+        switchViewMode(0);
 
         // 载入沉淀的自校准算法阈值与训练集样本数徽标
         CheckmarkDetector.setCalibratedMinContrast(TrainingDataCollector.getCalibratedMinContrast(this));
@@ -176,77 +189,80 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initViews() {
-        btnSample = findViewById(R.id.btn_sample);
+        toolbar = findViewById(R.id.toolbar);
+        toolbar.setSubtitle("v" + getVersionName() + " · 端侧离线识别 · Excel 智能填报");
+
         btnCamera = findViewById(R.id.btn_camera);
         btnGallery = findViewById(R.id.btn_gallery);
-        btnSensitivity = findViewById(R.id.btn_sensitivity);
-        btnExportExcel = findViewById(R.id.btn_export_excel);
-        btnFillExcel = findViewById(R.id.btn_fill_excel);
-        btnCopy = findViewById(R.id.btn_copy);
+        btnExport = findViewById(R.id.btn_export);
 
-        btnPageAll = findViewById(R.id.btn_page_all);
-        btnPage1 = findViewById(R.id.btn_page_1);
-        btnPage2 = findViewById(R.id.btn_page_2);
-        btnPage3 = findViewById(R.id.btn_page_3);
-        btnPage4 = findViewById(R.id.btn_page_4);
-        btnPageSample = findViewById(R.id.btn_page_sample);
-
-        tabImage = findViewById(R.id.tab_image);
-        tabRecords = findViewById(R.id.tab_records);
+        toggleView = findViewById(R.id.toggle_view);
+        chipGroupPages = findViewById(R.id.chip_group_pages);
+        scrollPageChips = findViewById(R.id.scroll_page_chips);
+        chipSensitivity = findViewById(R.id.chip_sensitivity);
+        chipBadge = findViewById(R.id.chip_badge);
+        chipGrid = findViewById(R.id.chip_grid);
 
         layoutImageView = findViewById(R.id.layout_image_view);
         layoutRecordsView = findViewById(R.id.layout_records_view);
 
         tvStatMarks = findViewById(R.id.tv_stat_marks);
         tvStatPersons = findViewById(R.id.tv_stat_persons);
+        tvStatPages = findViewById(R.id.tv_stat_pages);
         tvStatusBadge = findViewById(R.id.tv_status_badge);
         tvPreviewTip = findViewById(R.id.tv_preview_tip);
-
-        btnToggleBadge = findViewById(R.id.btn_toggle_badge);
-        btnToggleGrid = findViewById(R.id.btn_toggle_grid);
-        btnCheckUpdate = findViewById(R.id.btn_check_update);
-        btnTrainingData = findViewById(R.id.btn_training_data);
+        progressBusy = findViewById(R.id.progress_busy);
 
         etSearch = findViewById(R.id.et_search);
         rvRecords = findViewById(R.id.rv_records);
 
         ivPreview = findViewById(R.id.iv_preview);
         llAllImagesCards = findViewById(R.id.ll_all_images_cards);
+    }
 
-        cardImg1 = findViewById(R.id.card_img_1);
-        cardImg2 = findViewById(R.id.card_img_2);
-        cardImg3 = findViewById(R.id.card_img_3);
-        cardImg4 = findViewById(R.id.card_img_4);
-        cardImg5 = findViewById(R.id.card_img_5);
+    /**
+     * 按 pageItems 生成顶部页面标签 (全部 + 每页) 与纵览模式下的图片卡片
+     */
+    private void buildPageViews() {
+        LayoutInflater inflater = getLayoutInflater();
+        chipGroupPages.removeAllViews();
+        llAllImagesCards.removeAllViews();
 
-        ivCard1 = findViewById(R.id.iv_card_1);
-        ivCard2 = findViewById(R.id.iv_card_2);
-        ivCard3 = findViewById(R.id.iv_card_3);
-        ivCard4 = findViewById(R.id.iv_card_4);
-        ivCard5 = findViewById(R.id.iv_card_5);
+        pageChips = new Chip[pageItems.length + 1];
+        cardImages = new ImageView[pageItems.length];
+        cardPlaceholders = new TextView[pageItems.length];
+        cardMarks = new TextView[pageItems.length];
 
-        tvCardTitle1 = findViewById(R.id.tv_card_title_1);
-        tvCardTitle2 = findViewById(R.id.tv_card_title_2);
-        tvCardTitle3 = findViewById(R.id.tv_card_title_3);
-        tvCardTitle4 = findViewById(R.id.tv_card_title_4);
-        tvCardTitle5 = findViewById(R.id.tv_card_title_5);
+        for (int mode = 0; mode <= pageItems.length; mode++) {
+            final int targetMode = mode;
+            Chip chip = (Chip) inflater.inflate(R.layout.chip_page, chipGroupPages, false);
+            chip.setId(View.generateViewId());
+            chip.setText(mode == 0 ? "全部 (" + pageItems.length + "张)" : pageItems[mode - 1].tabName);
+            chip.setOnClickListener(v -> switchViewMode(targetMode));
+            chipGroupPages.addView(chip);
+            pageChips[mode] = chip;
+        }
 
-        tvCardMarks1 = findViewById(R.id.tv_card_marks_1);
-        tvCardMarks2 = findViewById(R.id.tv_card_marks_2);
-        tvCardMarks3 = findViewById(R.id.tv_card_marks_3);
-        tvCardMarks4 = findViewById(R.id.tv_card_marks_4);
-        tvCardMarks5 = findViewById(R.id.tv_card_marks_5);
+        for (int i = 0; i < pageItems.length; i++) {
+            final int targetMode = i + 1;
+            View card = inflater.inflate(R.layout.item_page_card, llAllImagesCards, false);
+            ((TextView) card.findViewById(R.id.tv_card_title)).setText(pageItems[i].title);
+            cardImages[i] = card.findViewById(R.id.iv_card);
+            cardPlaceholders[i] = card.findViewById(R.id.tv_card_placeholder);
+            cardMarks[i] = card.findViewById(R.id.tv_card_marks);
+            // 点击全图列表中的卡片，可直接快捷进入该图的单图聚焦微调视图
+            card.setOnClickListener(v -> switchViewMode(targetMode));
+            llAllImagesCards.addView(card);
+        }
     }
 
     private void setupLaunchers() {
+        // 相册一次多选：从当前聚焦页开始依次填入
         galleryLauncher = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(),
-            result -> {
-                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    Uri uri = result.getData().getData();
-                    if (uri != null) {
-                        loadCustomImage(uri);
-                    }
+            new ActivityResultContracts.GetMultipleContents(),
+            uris -> {
+                if (uris != null && !uris.isEmpty()) {
+                    importImages(uris);
                 }
             }
         );
@@ -255,7 +271,9 @@ public class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.TakePicture(),
             success -> {
                 if (success && cameraImageUri != null) {
-                    loadCustomImage(cameraImageUri);
+                    List<Uri> single = new ArrayList<>();
+                    single.add(cameraImageUri);
+                    importImages(single);
                 }
             }
         );
@@ -285,11 +303,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupEvents() {
-        btnSample.setOnClickListener(v -> loadAllSampleImages());
-
-        if (btnSensitivity != null) {
-            btnSensitivity.setOnClickListener(v -> cycleSensitivity());
-        }
+        toolbar.setOnMenuItemClickListener(this::onToolbarMenuItemClick);
 
         btnCamera.setOnClickListener(v -> {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -299,62 +313,28 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btnGallery.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("image/*");
-            galleryLauncher.launch(intent);
-        });
+        btnGallery.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+        btnExport.setOnClickListener(v -> showExportSheet());
 
-        if (btnFillExcel != null) {
-            btnFillExcel.setOnClickListener(v -> showFillExcelDialog());
-        }
-
-        btnExportExcel.setOnClickListener(v -> exportExcel());
-        btnCopy.setOnClickListener(v -> copySummaryToClipboard());
-
-        if (btnTrainingData != null) {
-            btnTrainingData.setOnClickListener(v -> showTrainingDataDialog());
-        }
-
-        if (btnCheckUpdate != null) {
-            btnCheckUpdate.setOnClickListener(v -> AppUpdateManager.getInstance().checkUpdate(this, true));
-            btnCheckUpdate.setOnLongClickListener(v -> {
-                AppUpdateManager.getInstance().showConfigureUrlDialog(this);
-                return true;
-            });
-        }
-
-        // 分页与全图切换导航
-        btnPageAll.setOnClickListener(v -> switchViewMode(0));
-        btnPage1.setOnClickListener(v -> switchViewMode(1));
-        btnPage2.setOnClickListener(v -> switchViewMode(2));
-        btnPage3.setOnClickListener(v -> switchViewMode(3));
-        btnPage4.setOnClickListener(v -> switchViewMode(4));
-        btnPageSample.setOnClickListener(v -> switchViewMode(5));
-
-        // 点击全图列表中的卡片，可直接快捷进入该图的单图聚焦微调视图
-        if (cardImg1 != null) cardImg1.setOnClickListener(v -> switchViewMode(1));
-        if (cardImg2 != null) cardImg2.setOnClickListener(v -> switchViewMode(2));
-        if (cardImg3 != null) cardImg3.setOnClickListener(v -> switchViewMode(3));
-        if (cardImg4 != null) cardImg4.setOnClickListener(v -> switchViewMode(4));
-        if (cardImg5 != null) cardImg5.setOnClickListener(v -> switchViewMode(5));
-
-        // Tab 切换 (Tab 0: 效果预览 / Tab 1: 核对名单)
-        tabImage.setOnClickListener(v -> switchTab(0));
-        tabRecords.setOnClickListener(v -> switchTab(1));
+        chipSensitivity.setOnClickListener(v -> cycleSensitivity());
 
         // 标号显隐切换 (只留框体 vs 标号+框体)
-        btnToggleBadge.setOnClickListener(v -> {
-            showBadge = !showBadge;
-            updateToggleBadgeButton();
+        chipBadge.setOnCheckedChangeListener((v, checked) -> {
+            showBadge = checked;
             refreshAllImageOverlays();
         });
 
         // 辅助网格切换
-        btnToggleGrid.setOnClickListener(v -> {
-            showHelperGrid = !showHelperGrid;
-            btnToggleGrid.setText(showHelperGrid ? "📐 隐藏网格" : "📐 辅助网格");
+        chipGrid.setOnCheckedChangeListener((v, checked) -> {
+            showHelperGrid = checked;
             refreshAllImageOverlays();
+        });
+
+        // 视图切换 (效果预览 / 核对名单)
+        toggleView.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+            if (isChecked) {
+                switchTab(checkedId == R.id.tab_records ? 1 : 0);
+            }
         });
 
         // 搜索框过滤
@@ -373,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
         GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
-                if (currentViewMode >= 1 && currentViewMode <= 5) {
+                if (currentViewMode >= 1 && currentViewMode <= pageItems.length) {
                     handleImageTouch(e.getX(), e.getY());
                     return true;
                 }
@@ -387,20 +367,51 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void updateToggleBadgeButton() {
-        if (btnToggleBadge != null) {
-            if (showBadge) {
-                btnToggleBadge.setText("🏷️ 隐藏标号 (只留框体)");
-                if (tvPreviewTip != null) {
-                    tvPreviewTip.setText("💡 标号模式 (含Excel单元格坐标)");
-                }
-            } else {
-                btnToggleBadge.setText("🏷️ 显示标号 (坐标)");
-                if (tvPreviewTip != null) {
-                    tvPreviewTip.setText("💡 仅显示框体 (原图笔画清晰)");
-                }
-            }
+    private boolean onToolbarMenuItemClick(MenuItem menuItem) {
+        int id = menuItem.getItemId();
+        if (id == R.id.action_training) {
+            showTrainingDataDialog();
+        } else if (id == R.id.action_reload) {
+            if (!rejectIfBusy()) loadAllSampleImages();
+        } else if (id == R.id.action_check_update) {
+            AppUpdateManager.getInstance().checkUpdate(this, true);
+        } else if (id == R.id.action_update_url) {
+            AppUpdateManager.getInstance().showConfigureUrlDialog(this);
+        } else {
+            return false;
         }
+        return true;
+    }
+
+    private String getVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * 进入/退出后台识别状态：显示进度条并锁定会改动识别结果的入口
+     */
+    private void setBusy(boolean busy, String statusText) {
+        isBusy = busy;
+        progressBusy.setVisibility(busy ? View.VISIBLE : View.INVISIBLE);
+        btnCamera.setEnabled(!busy);
+        btnGallery.setEnabled(!busy);
+        btnExport.setEnabled(!busy);
+        chipSensitivity.setEnabled(!busy);
+        if (statusText != null) {
+            tvStatusBadge.setText(statusText);
+        }
+        tvStatusBadge.setTextColor(ContextCompat.getColor(this, busy ? R.color.primary : R.color.checked_green));
+    }
+
+    private boolean rejectIfBusy() {
+        if (isBusy) {
+            Toast.makeText(this, "正在识别中，请稍候...", Toast.LENGTH_SHORT).show();
+        }
+        return isBusy;
     }
 
     private void switchViewMode(int mode) {
@@ -409,127 +420,105 @@ public class MainActivity extends AppCompatActivity {
 
         if (mode == 0) {
             // 全部图片纵览模式
-            if (llAllImagesCards != null) llAllImagesCards.setVisibility(View.VISIBLE);
-            if (ivPreview != null) ivPreview.setVisibility(View.GONE);
+            llAllImagesCards.setVisibility(View.VISIBLE);
+            ivPreview.setVisibility(View.GONE);
             adapter.setRecords(getCombinedRecords(1, 2, 3));
-            tvStatusBadge.setText("全部图片 (5张纵览)");
-            tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.checked_green));
+            tvPreviewTip.setText("点击任意图片进入单页，可逐格补勾 / 取消");
         } else {
             // 单图聚焦模式
-            if (llAllImagesCards != null) llAllImagesCards.setVisibility(View.GONE);
-            if (ivPreview != null) ivPreview.setVisibility(View.VISIBLE);
+            llAllImagesCards.setVisibility(View.GONE);
+            ivPreview.setVisibility(View.VISIBLE);
 
             PageItem item = pageItems[mode - 1];
             if (item.annotatedBitmap != null) {
                 ivPreview.setImageBitmap(item.annotatedBitmap);
-            } else if (item.originalBitmap != null) {
+            } else {
                 ivPreview.setImageBitmap(item.originalBitmap);
             }
             adapter.setRecords(item.records);
-            tvStatusBadge.setText(item.title != null ? item.title : item.tabName);
-            tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.checked_green));
+            tvPreviewTip.setText(item.originalBitmap != null
+                ? "点击表格中的格子即可补勾 / 取消，修正会自动累计为训练样本"
+                : "本页暂无图片：拍照或从相册导入后即可识别");
         }
+        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.checked_green));
 
         updateStatsDisplay();
         updateSummaryText();
     }
 
     private void updatePageNavUI(int mode) {
-        setNavBtnStyle(btnPageAll, mode == 0);
-        setNavBtnStyle(btnPage1, mode == 1);
-        setNavBtnStyle(btnPage2, mode == 2);
-        setNavBtnStyle(btnPage3, mode == 3);
-        setNavBtnStyle(btnPage4, mode == 4);
-        setNavBtnStyle(btnPageSample, mode == 5);
-    }
-
-    private void setNavBtnStyle(Button btn, boolean isSelected) {
-        if (btn == null) return;
-        btn.setBackgroundResource(isSelected ? R.drawable.bg_button_primary : R.drawable.bg_button_secondary);
-        btn.setTextColor(ContextCompat.getColor(this, isSelected ? android.R.color.white : R.color.primary));
+        // ChipGroup 为单选，选中目标标签会自动取消其余标签
+        Chip selected = pageChips[mode];
+        selected.setChecked(true);
+        // 代码切换页面时 (如多选导入后回到纵览)，把选中的标签滚动到可见位置
+        selected.post(() -> scrollPageChips.smoothScrollTo(
+            Math.max(0, selected.getLeft() - scrollPageChips.getPaddingStart()), 0));
     }
 
     private void switchTab(int tabIndex) {
         layoutImageView.setVisibility(tabIndex == 0 ? View.VISIBLE : View.GONE);
         layoutRecordsView.setVisibility(tabIndex == 1 ? View.VISIBLE : View.GONE);
-
-        updateTabButton(tabImage, tabIndex == 0);
-        updateTabButton(tabRecords, tabIndex == 1);
     }
 
-    private void updateTabButton(Button btn, boolean isSelected) {
-        if (isSelected) {
-            btn.setBackgroundResource(R.drawable.bg_button_primary);
-            btn.setTextColor(ContextCompat.getColor(this, android.R.color.white));
-        } else {
-            btn.setBackgroundResource(R.drawable.bg_button_secondary);
-            btn.setTextColor(ContextCompat.getColor(this, R.color.primary));
+    /**
+     * 对单页图片执行：打钩检测 -> 端侧 OCR 花名册提取 -> 生成仅框叠加图 (需在后台线程调用)
+     */
+    private void analyzePage(PageItem item, Bitmap bitmap) {
+        item.originalBitmap = bitmap;
+        item.annotatedBitmap = null;
+
+        // 1. 物理表格线与打钩检测 (基于拓扑和污渍过滤算法)
+        CheckmarkDetector.DetectionResult res = CheckmarkDetector.detect(
+            bitmap, item.records, currentSensitivity, 0, 0, showHelperGrid, showBadge
+        );
+        item.detectionResult = res;
+        if (res == null) return;
+
+        item.records = res.records;
+        item.detectedMarksCount = res.totalMarkCount;
+
+        // 2. 端侧离线 OCR 动态提取纸质表格花名册
+        try {
+            TableOcrScanner.OcrResult ocrRes = TableOcrScanner.scanTable(bitmap, res.grid, res.records);
+            if (ocrRes != null && ocrRes.success && ocrRes.records != null && !ocrRes.records.isEmpty()) {
+                for (int r = 0; r < Math.min(res.records.size(), ocrRes.records.size()); r++) {
+                    ParkingRecord original = res.records.get(r);
+                    ParkingRecord ocrRec = ocrRes.records.get(r);
+                    ocrRec.copyShiftsFrom(original);
+                }
+                res.records = ocrRes.records;
+                item.records = ocrRes.records;
+                item.ocrCount = ocrRes.recognizedItemCount;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "OCR 处理异常: " + e.getMessage(), e);
         }
+
+        // 3. 生成展示图片 (遵循 showBadge=false，仅框展示)
+        item.annotatedBitmap = CheckmarkDetector.renderOverlay(
+            bitmap, item.records, res.grid, showHelperGrid, showBadge, 0, 0
+        );
     }
 
     private void loadAllSampleImages() {
-        tvStatusBadge.setText("正在分析全部实拍与示例图...");
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.primary));
+        setBusy(true, "正在分析全部实拍与示例图...");
 
         executor.execute(() -> {
-            int totalAllMarks = 0;
-
-            for (int i = 0; i < pageItems.length; i++) {
-                PageItem item = pageItems[i];
-                try {
-                    InputStream is = getAssets().open(item.assetFileName);
+            for (PageItem item : pageItems) {
+                try (InputStream is = getAssets().open(item.assetFileName)) {
                     Bitmap bitmap = BitmapFactory.decodeStream(is);
-                    is.close();
-                    item.originalBitmap = bitmap;
-
-                    // 1. 物理表格线与打钩检测 (基于拓扑和污渍过滤算法)
-                    CheckmarkDetector.DetectionResult res = CheckmarkDetector.detect(
-                        bitmap, item.records, currentSensitivity, 0, 0, showHelperGrid, showBadge
-                    );
-                    item.detectionResult = res;
-
-                    if (res != null) {
-                        item.records = res.records;
-                        item.detectedMarksCount = res.totalMarkCount;
-                        totalAllMarks += item.detectedMarksCount;
-
-                        // 2. 端侧离线 OCR 动态提取纸质表格花名册
-                        try {
-                            TableOcrScanner.OcrResult ocrRes = TableOcrScanner.scanTable(bitmap, res.grid, res.records);
-                            if (ocrRes != null && ocrRes.success && ocrRes.records != null && !ocrRes.records.isEmpty()) {
-                                for (int r = 0; r < Math.min(res.records.size(), ocrRes.records.size()); r++) {
-                                    ParkingRecord original = res.records.get(r);
-                                    ParkingRecord ocrRec = ocrRes.records.get(r);
-                                    ocrRec.copyShiftsFrom(original);
-                                }
-                                res.records = ocrRes.records;
-                                item.records = ocrRes.records;
-                                item.ocrCount = ocrRes.recognizedItemCount;
-                            }
-                        } catch (Exception e) {
-                            Log.e("MainActivity", "OCR 处理异常: " + e.getMessage(), e);
-                        }
-
-                        // 3. 生成展示图片 (遵循 showBadge=false，仅框展示)
-                        item.annotatedBitmap = CheckmarkDetector.renderOverlay(
-                            bitmap, item.records, res.grid, showHelperGrid, showBadge, 0, 0
-                        );
-                    }
+                    analyzePage(item, bitmap);
                 } catch (Exception e) {
-                    Log.e("MainActivity", "加载 " + item.assetFileName + " 失败: " + e.getMessage(), e);
+                    Log.e(TAG, "加载 " + item.assetFileName + " 失败: " + e.getMessage(), e);
                 }
             }
 
-            final int finalTotalMarks = totalAllMarks;
             mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
-                updateStatsDisplay();
-                updateSummaryText();
-
-                tvStatusBadge.setText("5张图已就绪 (仅框)");
-                tvStatusBadge.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.checked_green));
-                Toast.makeText(MainActivity.this, "已载入全部 5 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
+                setBusy(false, pageItems.length + " 张示例图已就绪 (仅框)");
+                Toast.makeText(MainActivity.this, "已载入全部 " + pageItems.length + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -541,19 +530,20 @@ public class MainActivity extends AppCompatActivity {
      * 2: 严格模式 (0.85x, 抗重污、防透印反光)
      */
     private void cycleSensitivity() {
+        if (rejectIfBusy()) return;
         sensitivityMode = (sensitivityMode + 1) % 3;
         String tip;
         if (sensitivityMode == 1) {
             currentSensitivity = 1.25f;
-            btnSensitivity.setText("🔍 灵敏度: 增强");
+            chipSensitivity.setText("灵敏度：增强");
             tip = "已切换为【增强模式】：更灵敏捕获浅铅笔/淡笔迹打钩";
         } else if (sensitivityMode == 2) {
             currentSensitivity = 0.85f;
-            btnSensitivity.setText("🛡️ 灵敏度: 严格");
+            chipSensitivity.setText("灵敏度：严格");
             tip = "已切换为【严格模式】：抗纸张重度反光与透印杂斑";
         } else {
             currentSensitivity = 1.0f;
-            btnSensitivity.setText("⚡ 灵敏度: 自适应");
+            chipSensitivity.setText("灵敏度：自适应");
             tip = "已切换为【智能自适应模式】：标准均衡推荐";
         }
         Toast.makeText(this, tip, Toast.LENGTH_SHORT).show();
@@ -561,8 +551,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void reprocessAllPagesWithSensitivity() {
-        tvStatusBadge.setText("正在以新灵敏度自适应重新识别...");
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.primary));
+        setBusy(true, "正在以新灵敏度自适应重新识别...");
 
         executor.execute(() -> {
             int totalAllMarks = 0;
@@ -593,38 +582,26 @@ public class MainActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed()) return;
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
-                updateStatsDisplay();
-                updateSummaryText();
-                if (adapter != null) {
-                    adapter.setRecords(getCombinedRecords(1, 2, 3));
-                }
-                tvStatusBadge.setText("已就绪 (" + finalTotal + "处打钩)");
-                tvStatusBadge.setTextColor(ContextCompat.getColor(MainActivity.this, R.color.checked_green));
+                setBusy(false, "已就绪 (" + finalTotal + "处打钩)");
                 Toast.makeText(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT).show();
             });
         });
     }
 
     private void updateAllCardsUI() {
-        if (ivCard1 != null && pageItems[0].annotatedBitmap != null) {
-            ivCard1.setImageBitmap(pageItems[0].annotatedBitmap);
-            if (tvCardMarks1 != null) tvCardMarks1.setText(pageItems[0].detectedMarksCount + " 处打钩 [√]");
-        }
-        if (ivCard2 != null && pageItems[1].annotatedBitmap != null) {
-            ivCard2.setImageBitmap(pageItems[1].annotatedBitmap);
-            if (tvCardMarks2 != null) tvCardMarks2.setText(pageItems[1].detectedMarksCount + " 处打钩 [√]");
-        }
-        if (ivCard3 != null && pageItems[2].annotatedBitmap != null) {
-            ivCard3.setImageBitmap(pageItems[2].annotatedBitmap);
-            if (tvCardMarks3 != null) tvCardMarks3.setText(pageItems[2].detectedMarksCount + " 处打钩 [√]");
-        }
-        if (ivCard4 != null && pageItems[3].annotatedBitmap != null) {
-            ivCard4.setImageBitmap(pageItems[3].annotatedBitmap);
-            if (tvCardMarks4 != null) tvCardMarks4.setText(pageItems[3].detectedMarksCount + " 处打钩 [√]");
-        }
-        if (ivCard5 != null && pageItems[4].annotatedBitmap != null) {
-            ivCard5.setImageBitmap(pageItems[4].annotatedBitmap);
-            if (tvCardMarks5 != null) tvCardMarks5.setText(pageItems[4].detectedMarksCount + " 处打钩 [√]");
+        for (int i = 0; i < pageItems.length; i++) {
+            PageItem item = pageItems[i];
+            Bitmap shown = (item.annotatedBitmap != null) ? item.annotatedBitmap : item.originalBitmap;
+            if (shown != null) {
+                cardImages[i].setImageBitmap(shown);
+                cardImages[i].setVisibility(View.VISIBLE);
+                cardPlaceholders[i].setVisibility(View.GONE);
+                cardMarks[i].setText(item.detectedMarksCount + " 处打钩");
+            } else {
+                cardImages[i].setVisibility(View.GONE);
+                cardPlaceholders[i].setVisibility(View.VISIBLE);
+                cardMarks[i].setText("未载入");
+            }
         }
     }
 
@@ -638,7 +615,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         updateAllCardsUI();
-        if (currentViewMode >= 1 && currentViewMode <= 5) {
+        if (currentViewMode >= 1 && currentViewMode <= pageItems.length) {
             PageItem cur = pageItems[currentViewMode - 1];
             if (cur.annotatedBitmap != null) {
                 ivPreview.setImageBitmap(cur.annotatedBitmap);
@@ -647,7 +624,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleImageTouch(float touchX, float touchY) {
-        if (currentViewMode < 1 || currentViewMode > 5) return;
+        if (isBusy) return;
+        if (currentViewMode < 1 || currentViewMode > pageItems.length) return;
         PageItem item = pageItems[currentViewMode - 1];
         if (item.originalBitmap == null || ivPreview.getDrawable() == null) return;
 
@@ -710,7 +688,7 @@ public class MainActivity extends AppCompatActivity {
                 if (grid != null) {
                     RectF cellRect = grid.getCellRect(row, col, currentOffsetX, currentOffsetY, imgW, imgH);
                     TrainingDataCollector.getInstance().recordManualCorrection(
-                        MainActivity.this, item.originalBitmap, cellRect, row, col, 
+                        MainActivity.this, item.originalBitmap, cellRect, row, col,
                         rec.getName(), shift, cell, nowChecked
                     );
                     updateTrainingDataButtonBadge();
@@ -722,65 +700,89 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void loadCustomImage(Uri uri) {
-        tvStatusBadge.setText("正在分析自定义图片...");
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.primary));
+    /**
+     * 导入一张或多张图片：从当前聚焦页开始 (纵览模式从第 1 页开始)，按选择顺序依次填入后续页面。
+     * 超出剩余页数的图片会被忽略并提示。
+     */
+    private void importImages(List<Uri> uris) {
+        if (uris == null || uris.isEmpty() || rejectIfBusy()) return;
+
+        final int startIdx = (currentViewMode >= 1 && currentViewMode <= pageItems.length) ? (currentViewMode - 1) : 0;
+        final int capacity = pageItems.length - startIdx;
+        final List<Uri> accepted = new ArrayList<>(uris.subList(0, Math.min(uris.size(), capacity)));
+        final int skipped = uris.size() - accepted.size();
+        final int total = accepted.size();
+
+        setBusy(true, total > 1 ? "正在识别第 1/" + total + " 张图片..." : "正在分析自定义图片...");
 
         executor.execute(() -> {
-            try {
-                Bitmap bitmap = ImageUtils.loadAndNormalizeBitmap(this, uri);
-                if (bitmap == null) {
-                    mainHandler.post(() -> Toast.makeText(MainActivity.this, "读取图片失败，请重试", Toast.LENGTH_SHORT).show());
+            List<String> doneNames = new ArrayList<>();
+            int failed = 0;
+
+            for (int i = 0; i < total; i++) {
+                PageItem target = pageItems[startIdx + i];
+                if (i > 0) {
+                    final String progress = "正在识别第 " + (i + 1) + "/" + total + " 张图片...";
+                    mainHandler.post(() -> tvStatusBadge.setText(progress));
+                }
+                try {
+                    Bitmap bitmap = ImageUtils.loadAndNormalizeBitmap(this, accepted.get(i));
+                    if (bitmap == null) {
+                        failed++;
+                        continue;
+                    }
+                    analyzePage(target, bitmap);
+                    // 提示里只用短名 (去掉括号里的序号范围)，避免 Toast 超过两行被截断
+                    String shortName = target.tabName.replaceAll("\\s*\\(.*\\)", "");
+                    doneNames.add(shortName + " " + target.detectedMarksCount + "处");
+                } catch (Exception e) {
+                    failed++;
+                    Log.e(TAG, "处理图片失败: " + e.getMessage(), e);
+                }
+            }
+
+            final int failedCount = failed;
+            mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                updateAllCardsUI();
+                // 单张：直接聚焦该页便于微调；多张：回到纵览查看全部结果
+                if (total == 1) {
+                    switchViewMode(failedCount == 0 ? startIdx + 1 : currentViewMode);
+                } else {
+                    switchViewMode(0);
+                }
+
+                StringBuilder msg = new StringBuilder();
+                if (!doneNames.isEmpty()) {
+                    msg.append("已识别 ").append(doneNames.size()).append(" 张：").append(String.join("、", doneNames));
+                }
+                setBusy(false, doneNames.isEmpty() ? "图片读取失败" : "已导入 " + doneNames.size() + " 张图片");
+
+                if (failedCount == 0 && skipped == 0) {
+                    Toast.makeText(MainActivity.this, msg.toString(), Toast.LENGTH_LONG).show();
                     return;
                 }
-
-                int targetPageIdx = (currentViewMode >= 1 && currentViewMode <= 5) ? (currentViewMode - 1) : 0;
-                PageItem targetItem = pageItems[targetPageIdx];
-                targetItem.originalBitmap = bitmap;
-
-                CheckmarkDetector.DetectionResult res = CheckmarkDetector.detect(
-                    bitmap, targetItem.records, currentSensitivity, 0, 0, showHelperGrid, showBadge
-                );
-                targetItem.detectionResult = res;
-
-                if (res != null) {
-                    targetItem.records = res.records;
-                    targetItem.detectedMarksCount = res.totalMarkCount;
-
-                    try {
-                        TableOcrScanner.OcrResult ocrRes = TableOcrScanner.scanTable(bitmap, res.grid, res.records);
-                        if (ocrRes != null && ocrRes.success && ocrRes.records != null && !ocrRes.records.isEmpty()) {
-                            for (int r = 0; r < Math.min(res.records.size(), ocrRes.records.size()); r++) {
-                                ParkingRecord original = res.records.get(r);
-                                ParkingRecord ocrRec = ocrRes.records.get(r);
-                                ocrRec.copyShiftsFrom(original);
-                            }
-                            res.records = ocrRes.records;
-                            targetItem.records = ocrRes.records;
-                            targetItem.ocrCount = ocrRes.recognizedItemCount;
-                        }
-                    } catch (Exception e) {
-                        Log.e("MainActivity", "OCR异常: " + e.getMessage(), e);
-                    }
-
-                    targetItem.annotatedBitmap = CheckmarkDetector.renderOverlay(
-                        bitmap, targetItem.records, res.grid, showHelperGrid, showBadge, 0, 0
-                    );
+                // 有读取失败或超出页数被忽略的图片时用弹窗完整说明，避免 Toast 截断漏看
+                if (failedCount > 0) {
+                    if (msg.length() > 0) msg.append("\n\n");
+                    msg.append(failedCount).append(" 张图片读取失败，请重试");
                 }
-
-                mainHandler.post(() -> {
-                    updateAllCardsUI();
-                    switchViewMode(targetPageIdx + 1);
-                    Toast.makeText(MainActivity.this, targetItem.tabName + " 载入识别完成！", Toast.LENGTH_SHORT).show();
-                });
-            } catch (Exception e) {
-                e.printStackTrace();
-                mainHandler.post(() -> Toast.makeText(MainActivity.this, "处理图片错误: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-            }
+                if (skipped > 0) {
+                    if (msg.length() > 0) msg.append("\n\n");
+                    msg.append("从当前页起最多可放 ").append(capacity).append(" 张，已忽略最后 ").append(skipped)
+                       .append(" 张。如需导入更多，请先切到「全部」或靠前的页面再选择。");
+                }
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("导入结果")
+                    .setMessage(msg.toString())
+                    .setPositiveButton("知道了", null)
+                    .show();
+            });
         });
     }
 
     private void startCameraCapture() {
+        if (rejectIfBusy()) return;
         try {
             File photoFile = new File(getCacheDir(), "capture_" + System.currentTimeMillis() + ".jpg");
             cameraImageUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", photoFile);
@@ -834,6 +836,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStatsDisplay() {
+        int loadedPages = 0;
+        for (PageItem item : pageItems) {
+            if (item.originalBitmap != null) loadedPages++;
+        }
+        tvStatPages.setText(loadedPages + " / " + pageItems.length + " 张");
+
         if (currentViewMode == 0) {
             int totalAllMarks = 0;
             for (PageItem item : pageItems) totalAllMarks += item.detectedMarksCount;
@@ -844,8 +852,8 @@ public class MainActivity extends AppCompatActivity {
                 if (r.hasAnyChecked()) attended++;
             }
             tvStatMarks.setText(totalAllMarks + " 处");
-            tvStatPersons.setText(attended + " / 115 人");
-            tvStatusBadge.setText("全部图片 (5张纵览)");
+            tvStatPersons.setText(attended + " / " + fullRoster.size() + " 人");
+            tvStatusBadge.setText("全部图片 (" + pageItems.length + "张纵览)");
         } else {
             PageItem item = pageItems[currentViewMode - 1];
             int attended = 0;
@@ -864,8 +872,8 @@ public class MainActivity extends AppCompatActivity {
         sb.append("显示视图: ").append(currentViewMode == 0 ? "全部图片 (纵览模式)" : pageItems[currentViewMode - 1].title).append("\n");
         sb.append("--------------------------------------------------\n\n");
 
-        List<ParkingRecord> targetRecords = (currentViewMode == 0) 
-            ? getCombinedRecords(1, 2, 3) 
+        List<ParkingRecord> targetRecords = (currentViewMode == 0)
+            ? getCombinedRecords(1, 2, 3)
             : pageItems[currentViewMode - 1].records;
 
         int totalChecks = 0;
@@ -874,13 +882,13 @@ public class MainActivity extends AppCompatActivity {
         for (ParkingRecord r : targetRecords) {
             if (r.hasAnyChecked()) {
                 totalChecks += r.getCheckedCount();
-                sb.append(String.format("• 序号%02d: %s (%s) [Excel第%d行]\n", 
+                sb.append(String.format("• 序号%02d: %s (%s) [Excel第%d行]\n",
                     r.getIndex(), r.getName(), r.getPlateNumber(), r.getExcelRow()));
 
                 for (int c = 0; c < 14; c++) {
                     if (r.isShiftChecked(c)) {
                         shiftCounts[c]++;
-                        sb.append(String.format("   ↳ %s -> 单元格: 【%s】 (打钩 √)\n", 
+                        sb.append(String.format("   ↳ %s -> 单元格: 【%s】 (打钩 √)\n",
                             ShiftConstants.SHIFT_NAMES[c], r.getExcelCell(c)));
                     }
                 }
@@ -898,11 +906,66 @@ public class MainActivity extends AppCompatActivity {
                 nightShift, ShiftConstants.EXCEL_COLUMNS[d * 2 + 1]));
         }
 
-        int all5Checks = 0;
-        for (PageItem item : pageItems) all5Checks += item.detectedMarksCount;
+        int allPagesChecks = 0;
+        for (PageItem item : pageItems) allPagesChecks += item.detectedMarksCount;
 
-        sb.append(String.format("\n📌 当前视图打钩人次: %d 次  |  5张图全部打钩总计: %d 次\n", totalChecks, all5Checks));
+        sb.append(String.format("\n📌 当前视图打钩人次: %d 次  |  %d张图全部打钩总计: %d 次\n", totalChecks, pageItems.length, allPagesChecks));
         summaryText = sb.toString();
+    }
+
+    /**
+     * 导出入口：底部弹层汇总全部导出方式 (导入表格填1 / 内置标准表 / 生成新表 / 复制报表)
+     */
+    private void showExportSheet() {
+        List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
+        int attended = 0;
+        int totalMarks = 0;
+        for (ParkingRecord r : allRecords) {
+            if (r.hasAnyChecked()) attended++;
+            totalMarks += r.getCheckedCount();
+        }
+
+        BottomSheetDialog sheet = new BottomSheetDialog(this);
+        View content = getLayoutInflater().inflate(R.layout.bottom_sheet_export, null);
+        ((TextView) content.findViewById(R.id.tv_export_summary)).setText(
+            "第1~3页共识别 " + totalMarks + " 处打钩、" + attended + " 人出勤，导出时打钩统一填为数字 1");
+
+        LinearLayout options = content.findViewById(R.id.ll_export_options);
+        addExportOption(sheet, options, R.drawable.ic_upload_file, "导入我的表格填 1（推荐）",
+            "选择手机里的 .xlsx（如微信收到的表格），保留原格式与公式", this::pickUserExcel);
+        addExportOption(sheet, options, R.drawable.ic_description, "填入内置标准表",
+            "使用内置二号岗亭标准模板填 1 后导出", () -> processExcelFilling(null));
+        addExportOption(sheet, options, R.drawable.ic_grid_on, "生成新表格",
+            "直接生成一份标准排班考勤表并分享", this::exportExcel);
+        addExportOption(sheet, options, R.drawable.ic_content_copy, "复制文字报表",
+            "复制每人打钩情况及对应 Excel 单元格到剪贴板", this::copySummaryToClipboard);
+
+        sheet.setContentView(content);
+        sheet.show();
+    }
+
+    private void addExportOption(BottomSheetDialog sheet, LinearLayout container, int iconRes,
+                                 String title, String desc, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_export_option, container, false);
+        ((ImageView) row.findViewById(R.id.iv_option_icon)).setImageResource(iconRes);
+        ((TextView) row.findViewById(R.id.tv_option_title)).setText(title);
+        ((TextView) row.findViewById(R.id.tv_option_desc)).setText(desc);
+        row.setOnClickListener(v -> {
+            sheet.dismiss();
+            action.run();
+        });
+        container.addView(row);
+    }
+
+    private void pickUserExcel() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-excel",
+            "application/octet-stream"
+        });
+        excelPickerLauncher.launch(intent);
     }
 
     private void exportExcel() {
@@ -932,49 +995,9 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "已复制 Excel 映射结果到剪贴板！", Toast.LENGTH_SHORT).show();
     }
 
-    private void showFillExcelDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("📥 导入表格填1并导出");
-
-        List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
-        int attended = 0;
-        int totalMarks = 0;
-        for (ParkingRecord r : allRecords) {
-            if (r.hasAnyChecked()) attended++;
-            totalMarks += r.getCheckedCount();
-        }
-
-        String msg = "将按照图片识别的打钩情况，把打钩全部换成数字 1，位置完全按照输入的表格填入并直接导出：\n\n"
-                   + "• 识别打钩总数: " + totalMarks + " 处 (将填入1)\n"
-                   + "• 涉及出勤人员: " + attended + " 人\n\n"
-                   + "请选择导入的表格来源：";
-        builder.setMessage(msg);
-
-        builder.setPositiveButton("📁 从手机选择表格并导出", (dialog, which) -> {
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("*/*");
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "application/vnd.ms-excel",
-                "application/octet-stream"
-            });
-            excelPickerLauncher.launch(intent);
-        });
-
-        builder.setNeutralButton("📋 填入内置标准表并导出", (dialog, which) -> {
-            processExcelFilling(null);
-        });
-
-        builder.setNegativeButton("取消", null);
-        builder.show();
-    }
-
     private void processExcelFilling(Uri userExcelUri) {
         Toast.makeText(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT).show();
-        if (tvStatusBadge != null) {
-            tvStatusBadge.setText("正在执行按表填1并导出...");
-            tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.primary));
-        }
+        setBusy(true, "正在执行按表填1并导出...");
 
         executor.execute(() -> {
             List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
@@ -986,6 +1009,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             mainHandler.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                setBusy(false, null);
                 updateStatsDisplay();
                 if (result.success && result.outputFile != null) {
                     // 自动将现场已核对通过的表格累计入训练数据库
@@ -1017,14 +1042,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateTrainingDataButtonBadge() {
-        executor.execute(() -> {
-            TrainingDataCollector.DatasetStats stats = TrainingDataCollector.getInstance().getStats(MainActivity.this);
-            mainHandler.post(() -> {
-                if (btnTrainingData != null) {
-                    btnTrainingData.setText("🎓 训练集 (" + stats.totalSamples + ")");
-                }
-            });
-        });
+        TrainingDataCollector.getInstance().getStatsAsync(MainActivity.this, stats -> mainHandler.post(() -> {
+            MenuItem item = toolbar.getMenu().findItem(R.id.action_training);
+            if (item != null) {
+                item.setTitle("训练集 (" + stats.totalSamples + ")");
+            }
+        }));
     }
 
     private void showTrainingDataDialog() {
@@ -1066,10 +1089,6 @@ public class MainActivity extends AppCompatActivity {
                         TrainingDataCollector.getInstance().exportDatasetZip(MainActivity.this);
                     })
                     .setNegativeButton("关闭", null);
-
-                if (stats.totalSamples > 0) {
-                    // 支持清空重置
-                }
 
                 builder.show();
             });
