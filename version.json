@@ -1,7 +1,7 @@
 {
   "versionCode": 29,
   "versionName": "2.6.1",
-  "apkUrl": "http://10.0.0.192:8080/CheckMarkScanner_v2.6.1.apk",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.1.apk",
   "apkSize": "26.7MB",
   "updateLog": "1. 修复 OCR 把相邻两行识别成同一序号、导致打钩写到错误 Excel 行的问题（例如第 41 号写进第 43 行）：同一页的序号改为按投票得出的起始号连续编号\n2. 包含 2.6.0 的全部改进：新界面、相册一次多选、导出入口合并",
   "forceUpdate": false

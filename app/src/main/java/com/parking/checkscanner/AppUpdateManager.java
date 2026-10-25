@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,9 +47,18 @@ public class AppUpdateManager {
     private static final String PREF_NAME = "update_config";
     private static final String KEY_UPDATE_URL = "update_url";
 
-    // 默认更新检测地址（可配置为您的 GitHub、Gitee Releases、或内网服务器地址）
-    public static final String DEFAULT_UPDATE_URL = 
+    // 局域网更新源：岗亭内网 Wi-Fi 下最快 (台式机更新服务器)
+    public static final String DEFAULT_UPDATE_URL =
         "http://10.0.0.192:8080/version.json";
+
+    // 公网更新源：同一台服务器经 Tailscale Funnel 暴露的 HTTPS 地址，手机用流量或其他 Wi-Fi 时使用。
+    // 用 8443 端口：443 已被台式机上仅 tailnet 可见的另一个服务占用
+    public static final String PUBLIC_UPDATE_URL =
+        "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
+
+    // 局域网地址在外网必然连不上，用短超时尽快切到公网源
+    private static final int LAN_CONNECT_TIMEOUT_MS = 3000;
+    private static final int PUBLIC_CONNECT_TIMEOUT_MS = 8000;
 
     private static AppUpdateManager instance;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -68,6 +78,7 @@ public class AppUpdateManager {
         public String apkSize;
         public String updateLog;
         public boolean forceUpdate;
+        public String sourceUrl; // 本次检测成功的 version.json 地址，下载安装包时优先走同一台服务器
 
         public static UpdateInfo fromJson(String jsonStr) throws Exception {
             JSONObject json = new JSONObject(jsonStr);
@@ -85,12 +96,22 @@ public class AppUpdateManager {
     public static String getUpdateUrl(Context context) {
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String url = sp.getString(KEY_UPDATE_URL, DEFAULT_UPDATE_URL);
-        if (url == null || url.contains("githubusercontent.com") || url.isEmpty() ||
-            url.contains(":5005") || url.contains("10.0.0.1") || !url.startsWith("http")) {
+        if (UpdateSourceResolver.isLegacyUrl(url)) {
             url = DEFAULT_UPDATE_URL;
             sp.edit().putString(KEY_UPDATE_URL, url).apply();
         }
         return url;
+    }
+
+    /**
+     * 依次尝试的更新源：用户在「更新服务器设置」里指定的地址 → 局域网 → 公网 Funnel
+     */
+    public static List<String> getUpdateSources(Context context) {
+        return UpdateSourceResolver.buildSources(getUpdateUrl(context), DEFAULT_UPDATE_URL, PUBLIC_UPDATE_URL);
+    }
+
+    private static int connectTimeoutFor(String url) {
+        return UpdateSourceResolver.isPrivateHost(url) ? LAN_CONNECT_TIMEOUT_MS : PUBLIC_CONNECT_TIMEOUT_MS;
     }
 
     public static void setUpdateUrl(Context context, String url) {
@@ -132,64 +153,76 @@ public class AppUpdateManager {
             Toast.makeText(activity, "正在连接更新服务器，请稍候...", Toast.LENGTH_SHORT).show();
         }
 
-        String targetUrl = getUpdateUrl(activity);
+        List<String> sources = getUpdateSources(activity);
 
         executor.execute(() -> {
-            HttpURLConnection conn = null;
-            BufferedReader reader = null;
-            try {
-                URL url = new URL(targetUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(6000);
-                conn.setReadTimeout(6000);
-                conn.setRequestProperty("User-Agent", "CheckMarkScanner/" + getCurrentVersionName(activity));
-                conn.setRequestProperty("Accept", "application/json");
-
-                int respCode = conn.getResponseCode();
-                if (respCode == HttpURLConnection.HTTP_OK) {
-                    reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line).append("\n");
-                    }
-
-                    UpdateInfo info = UpdateInfo.fromJson(sb.toString());
-                    int curCode = getCurrentVersionCode(activity);
-
-                    mainHandler.post(() -> {
-                        if (activity.isFinishing() || activity.isDestroyed()) return;
-
-                        if (info.versionCode > curCode) {
-                            showUpdateDialog(activity, info);
-                        } else {
-                            if (isManual) {
-                                new AlertDialog.Builder(activity)
-                                    .setTitle("已是最新版本")
-                                    .setMessage("当前版本已是最新版 (v" + getCurrentVersionName(activity) + ")，无需更新。")
-                                    .setPositiveButton("我知道了", null)
-                                    .show();
-                            }
-                        }
-                    });
-                } else {
-                    throw new Exception("HTTP " + respCode);
-                }
-            } catch (Exception e) {
-                mainHandler.post(() -> {
-                    if (activity.isFinishing() || activity.isDestroyed()) return;
-                    if (isManual) {
-                        showCheckFailedDialog(activity, targetUrl, e.getMessage());
-                    }
-                });
-            } finally {
+            // 依次尝试各更新源 (局域网优先，外网时自动改走公网 Funnel)，取第一个成功的
+            UpdateInfo found = null;
+            StringBuilder errors = new StringBuilder();
+            for (String source : sources) {
                 try {
-                    if (reader != null) reader.close();
-                    if (conn != null) conn.disconnect();
-                } catch (Exception ignored) {}
+                    found = fetchUpdateInfo(activity, source);
+                    break;
+                } catch (Exception e) {
+                    errors.append(source).append(" -> ").append(e.getMessage()).append('\n');
+                }
             }
+
+            final UpdateInfo info = found;
+            mainHandler.post(() -> {
+                if (activity.isFinishing() || activity.isDestroyed()) return;
+
+                if (info == null) {
+                    if (isManual) {
+                        showCheckFailedDialog(activity, sources.toString(), errors.toString());
+                    }
+                } else if (info.versionCode > getCurrentVersionCode(activity)) {
+                    showUpdateDialog(activity, info);
+                } else if (isManual) {
+                    new AlertDialog.Builder(activity)
+                        .setTitle("已是最新版本")
+                        .setMessage("当前版本已是最新版 (v" + getCurrentVersionName(activity) + ")，无需更新。")
+                        .setPositiveButton("我知道了", null)
+                        .show();
+                }
+            });
         });
+    }
+
+    /**
+     * 从单个更新源读取 version.json (在后台线程调用)，失败抛出异常以便尝试下一个源
+     */
+    private UpdateInfo fetchUpdateInfo(Context context, String sourceUrl) throws Exception {
+        HttpURLConnection conn = null;
+        BufferedReader reader = null;
+        try {
+            conn = (HttpURLConnection) new URL(sourceUrl).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(connectTimeoutFor(sourceUrl));
+            conn.setReadTimeout(6000);
+            conn.setRequestProperty("User-Agent", "CheckMarkScanner/" + getCurrentVersionName(context));
+            conn.setRequestProperty("Accept", "application/json");
+
+            int respCode = conn.getResponseCode();
+            if (respCode != HttpURLConnection.HTTP_OK) {
+                throw new Exception("HTTP " + respCode);
+            }
+            reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line).append("\n");
+            }
+
+            UpdateInfo info = UpdateInfo.fromJson(sb.toString());
+            info.sourceUrl = sourceUrl;
+            return info;
+        } finally {
+            try {
+                if (reader != null) reader.close();
+                if (conn != null) conn.disconnect();
+            } catch (Exception ignored) {}
+        }
     }
 
     /**
@@ -254,17 +287,15 @@ public class AppUpdateManager {
 
         progressDialog.show();
 
+        String sourceUrl = (info.sourceUrl != null) ? info.sourceUrl : getUpdateUrl(activity);
+        List<String> candidates = UpdateSourceResolver.buildDownloadCandidates(sourceUrl, info.apkUrl);
+
         executor.execute(() -> {
             HttpURLConnection conn = null;
             InputStream is = null;
             FileOutputStream fos = null;
             try {
-                URL url = new URL(info.apkUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(15000);
-                conn.setRequestProperty("Accept-Encoding", "identity");
+                conn = openApkConnection(candidates);
 
                 int totalLength = conn.getContentLength();
                 is = conn.getInputStream();
@@ -349,6 +380,34 @@ public class AppUpdateManager {
     }
 
     /**
+     * 按候选顺序连接安装包地址，返回第一个 HTTP 200 的连接 (在后台线程调用)。
+     * 非 200 (如 404) 直接换下一个，避免把错误页当安装包写入。
+     */
+    private HttpURLConnection openApkConnection(List<String> candidates) throws Exception {
+        StringBuilder errors = new StringBuilder();
+        for (String candidate : candidates) {
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) new URL(candidate).openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(connectTimeoutFor(candidate));
+                conn.setReadTimeout(15000);
+                conn.setRequestProperty("Accept-Encoding", "identity");
+                int respCode = conn.getResponseCode();
+                if (respCode == HttpURLConnection.HTTP_OK) {
+                    return conn;
+                }
+                errors.append("HTTP ").append(respCode);
+            } catch (Exception e) {
+                errors.append(e.getMessage());
+            }
+            errors.append(" (").append(candidate).append(")\n");
+            if (conn != null) conn.disconnect();
+        }
+        throw new Exception("所有下载地址均不可用：\n" + errors.toString().trim());
+    }
+
+    /**
      * 适配全版本 Android 的 APK 自动安装器
      */
     public static void installApk(Activity activity, File apkFile) {
@@ -416,7 +475,7 @@ public class AppUpdateManager {
 
         new AlertDialog.Builder(activity)
             .setTitle("⚙️ 配置更新服务地址")
-            .setMessage("您可以指定局域网测试服务器、公司内网、Gitee 或 GitHub 的 version.json 链接：")
+            .setMessage("默认先连局域网服务器，连不上时自动改连公网地址。\n如需指定其他 version.json 地址 (会最先尝试)，可在此填写：")
             .setView(etUrl)
             .setPositiveButton("保存并检查", (dialog, which) -> {
                 String input = etUrl.getText().toString().trim();
@@ -442,7 +501,7 @@ public class AppUpdateManager {
             .setTitle("💡 离线模式正常运行中")
             .setMessage("当前未连接到更新服务器。\n\n" +
                         "✅ 本软件全部打钩识别、智能修正与 Excel 填表导出功能均 100% 在本机离线运行，无需连网即可正常使用！\n\n" +
-                        "若需获取最新升级，可在连入局域网 Wi-Fi 后重试。")
+                        "局域网与公网更新服务器都暂时连不上，请检查手机网络后重试。")
             .setPositiveButton("我知道了 (继续离线使用)", null)
             .setNeutralButton("重试检测", (dialog, which) -> checkUpdate(activity, true))
             .show();
