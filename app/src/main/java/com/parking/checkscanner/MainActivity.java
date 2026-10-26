@@ -914,7 +914,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 导出入口：底部弹层汇总全部导出方式 (导入表格填1 / 内置标准表 / 生成新表 / 复制报表)
+     * 导出入口：底部弹层汇总全部导出方式 (停车情况表副本填1 / 导入表格填1 / 复制报表)
      */
     private void showExportSheet() {
         List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
@@ -931,12 +931,10 @@ public class MainActivity extends AppCompatActivity {
             "第1~3页共识别 " + totalMarks + " 处打钩、" + attended + " 人出勤，导出时打钩统一填为数字 1");
 
         LinearLayout options = content.findViewById(R.id.ll_export_options);
-        addExportOption(sheet, options, R.drawable.ic_upload_file, "导入我的表格填 1（推荐）",
-            "选择手机里的 .xlsx（如微信收到的表格），保留原格式与公式", this::pickUserExcel);
-        addExportOption(sheet, options, R.drawable.ic_description, "填入内置标准表",
-            "使用内置二号岗亭标准模板填 1 后导出", () -> processExcelFilling(null));
-        addExportOption(sheet, options, R.drawable.ic_grid_on, "生成新表格",
-            "直接生成一份标准排班考勤表并分享", this::exportExcel);
+        addExportOption(sheet, options, R.drawable.ic_description, "填入停车情况表（推荐）",
+            "在内置《停车情况》模板的副本上填 1 后导出，原表格式不变", () -> processExcelFilling(null));
+        addExportOption(sheet, options, R.drawable.ic_upload_file, "导入我的表格填 1",
+            "选择手机里的 .xlsx（如更新过名单的停车情况表），在副本上填 1", this::pickUserExcel);
         addExportOption(sheet, options, R.drawable.ic_content_copy, "复制文字报表",
             "复制每人打钩情况及对应 Excel 单元格到剪贴板", this::copySummaryToClipboard);
 
@@ -966,23 +964,6 @@ public class MainActivity extends AppCompatActivity {
             "application/octet-stream"
         });
         excelPickerLauncher.launch(intent);
-    }
-
-    private void exportExcel() {
-        try {
-            // 合并实拍第1页(1~39)、第2页(40~77)与第3页(78~115)完整115人名单导出 (勾换成1)
-            List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
-            File xlsxFile = ExcelExporter.exportToXlsx(this, allRecords);
-
-            // 自动将现场已核对通过的表格累计入训练数据库
-            autoRecordVerifiedPagesToDataset();
-
-            Toast.makeText(this, "Excel 导出成功 (勾已换为数字1): " + xlsxFile.getName(), Toast.LENGTH_SHORT).show();
-            ExcelExporter.shareFile(this, xlsxFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "导出 Excel 失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
-        }
     }
 
     private void copySummaryToClipboard() {
