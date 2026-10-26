@@ -6,9 +6,9 @@ import java.util.List;
 
 /**
  * 更新源与安装包下载地址解析 (纯 Java，无 Android 依赖)：
- * 1. 按「用户自定义 → 局域网 → 公网 Funnel」顺序生成待检测的 version.json 地址
- * 2. 安装包优先从刚检测成功的那台服务器下载，再回退到 version.json 里写的 apkUrl，
- *    这样 apkUrl 写成局域网地址时外网也能下载，写成公网地址时局域网内仍走内网
+ * 1. 按「用户自定义 → 局域网 → 国内中转 → 公网 Funnel」顺序生成待检测的 version.json 地址
+ * 2. 安装包：从局域网检测成功时走局域网；否则先走 version.json 里的 apkUrl
+ *    (服务器按来源给外网请求下发最快的国内中转地址)，失败再回退到检测成功的那台服务器
  */
 public final class UpdateSourceResolver {
 
@@ -29,9 +29,10 @@ public final class UpdateSourceResolver {
     }
 
     /**
-     * 安装包下载候选地址：
-     * 1. 检测成功的服务器上与 version.json 同目录的同名安装包 (该服务器刚刚可达)
-     * 2. version.json 中的 apkUrl (相对路径按 sourceUrl 解析)
+     * 安装包下载候选地址 (sameHost = 检测成功的服务器上与 version.json 同目录的同名安装包)：
+     * - 从局域网检测成功：sameHost (内网最快) → apkUrl
+     * - 其他情况：apkUrl (服务器下发的国内中转) → sameHost (刚刚可达的服务器兜底)
+     * apkUrl 为相对路径时按 sourceUrl 解析
      */
     public static List<String> buildDownloadCandidates(String sourceUrl, String apkUrl) {
         List<String> candidates = new ArrayList<>();
@@ -42,10 +43,14 @@ public final class UpdateSourceResolver {
             URL resolved = new URL(source, apk);
             String path = resolved.getPath();
             String fileName = path.substring(path.lastIndexOf('/') + 1);
-            if (!fileName.isEmpty()) {
-                addIfValid(candidates, new URL(source, fileName).toString());
+            String sameHost = fileName.isEmpty() ? null : new URL(source, fileName).toString();
+            if (isPrivateHost(sourceUrl)) {
+                addIfValid(candidates, sameHost);
+                addIfValid(candidates, resolved.toString());
+            } else {
+                addIfValid(candidates, resolved.toString());
+                addIfValid(candidates, sameHost);
             }
-            addIfValid(candidates, resolved.toString());
         } catch (Exception e) {
             addIfValid(candidates, apk);
         }

@@ -51,7 +51,12 @@ public class AppUpdateManager {
     public static final String DEFAULT_UPDATE_URL =
         "http://10.0.0.192:8080/version.json";
 
-    // 公网更新源：同一台服务器经 Tailscale Funnel 暴露的 HTTPS 地址，手机用流量或其他 Wi-Fi 时使用。
+    // 国内中转更新源：同一台服务器经樱花 frp 国内节点 (长沙电信) 暴露的 HTTPS 地址，
+    // 证书为公共 CA 签发。手机不在局域网时优先使用，不必绕道海外
+    public static final String RELAY_UPDATE_URL =
+        "https://www.haa95d85b.nyat.app:19846/version.json";
+
+    // 公网兜底更新源：同一台服务器经 Tailscale Funnel 暴露的 HTTPS 地址 (入口在海外，较慢)，国内中转不可用时使用。
     // 用 8443 端口：443 已被台式机上仅 tailnet 可见的另一个服务占用
     public static final String PUBLIC_UPDATE_URL =
         "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
@@ -78,7 +83,7 @@ public class AppUpdateManager {
         public String apkSize;
         public String updateLog;
         public boolean forceUpdate;
-        public String sourceUrl; // 本次检测成功的 version.json 地址，下载安装包时优先走同一台服务器
+        public String sourceUrl; // 本次检测成功的 version.json 地址，决定安装包从哪条线路下载
 
         public static UpdateInfo fromJson(String jsonStr) throws Exception {
             JSONObject json = new JSONObject(jsonStr);
@@ -104,10 +109,11 @@ public class AppUpdateManager {
     }
 
     /**
-     * 依次尝试的更新源：用户在「更新服务器设置」里指定的地址 → 局域网 → 公网 Funnel
+     * 依次尝试的更新源：用户在「更新服务器设置」里指定的地址 → 局域网 → 国内中转 → 公网 Funnel
      */
     public static List<String> getUpdateSources(Context context) {
-        return UpdateSourceResolver.buildSources(getUpdateUrl(context), DEFAULT_UPDATE_URL, PUBLIC_UPDATE_URL);
+        return UpdateSourceResolver.buildSources(getUpdateUrl(context),
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL);
     }
 
     private static int connectTimeoutFor(String url) {
@@ -475,7 +481,7 @@ public class AppUpdateManager {
 
         new AlertDialog.Builder(activity)
             .setTitle("⚙️ 配置更新服务地址")
-            .setMessage("默认先连局域网服务器，连不上时自动改连公网地址。\n如需指定其他 version.json 地址 (会最先尝试)，可在此填写：")
+            .setMessage("默认依次尝试：局域网服务器 → 国内中转 → 公网备用地址。\n如需指定其他 version.json 地址 (会最先尝试)，可在此填写：")
             .setView(etUrl)
             .setPositiveButton("保存并检查", (dialog, which) -> {
                 String input = etUrl.getText().toString().trim();
