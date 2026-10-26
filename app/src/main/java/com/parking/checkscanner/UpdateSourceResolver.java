@@ -3,6 +3,7 @@ package com.parking.checkscanner;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 更新源与安装包下载地址解析 (纯 Java，无 Android 依赖)：
@@ -70,6 +71,41 @@ public final class UpdateSourceResolver {
         } catch (Exception e) {
             return true;
         }
+    }
+
+    /**
+     * 两个地址是否指向同一位置：协议与主机名不区分大小写，省略的端口按协议默认端口，空路径视为 "/"
+     */
+    public static boolean isSameUrl(String a, String b) {
+        if (a == null || b == null) return false;
+        try {
+            URL x = new URL(a.trim());
+            URL y = new URL(b.trim());
+            return x.getProtocol().equalsIgnoreCase(y.getProtocol())
+                && x.getHost().equalsIgnoreCase(y.getHost())
+                && effectivePort(x) == effectivePort(y)
+                && normalizedPath(x).equals(normalizedPath(y))
+                && Objects.equals(x.getQuery(), y.getQuery());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static boolean matchesAny(String url, String... candidates) {
+        if (candidates == null) return false;
+        for (String candidate : candidates) {
+            if (isSameUrl(url, candidate)) return true;
+        }
+        return false;
+    }
+
+    private static int effectivePort(URL u) {
+        return u.getPort() != -1 ? u.getPort() : u.getDefaultPort();
+    }
+
+    private static String normalizedPath(URL u) {
+        String path = u.getPath();
+        return path.isEmpty() ? "/" : path;
     }
 
     /**

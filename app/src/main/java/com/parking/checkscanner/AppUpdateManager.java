@@ -61,6 +61,10 @@ public class AppUpdateManager {
     public static final String PUBLIC_UPDATE_URL =
         "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
 
+    // 定 Funnel 端口前曾给出的不带 :8443 的地址 (443 仅 tailnet 可见，公网连不上)，当作内置地址处理
+    private static final String MISTAKEN_PUBLIC_URL =
+        "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net/version.json";
+
     // 局域网地址在外网必然连不上，用短超时尽快切到公网源
     private static final int LAN_CONNECT_TIMEOUT_MS = 3000;
     private static final int PUBLIC_CONNECT_TIMEOUT_MS = 8000;
@@ -101,7 +105,11 @@ public class AppUpdateManager {
     public static String getUpdateUrl(Context context) {
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String url = sp.getString(KEY_UPDATE_URL, DEFAULT_UPDATE_URL);
-        if (UpdateSourceResolver.isLegacyUrl(url)) {
+        // 填的若是内置地址 (旧版本在外网需手动填一次中转 / Funnel 地址)，一律回到默认顺序
+        // 局域网 → 中转 → Funnel，避免在局域网里也先走中转或海外线路
+        boolean builtIn = UpdateSourceResolver.matchesAny(url,
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, MISTAKEN_PUBLIC_URL);
+        if (UpdateSourceResolver.isLegacyUrl(url) || (builtIn && !DEFAULT_UPDATE_URL.equals(url))) {
             url = DEFAULT_UPDATE_URL;
             sp.edit().putString(KEY_UPDATE_URL, url).apply();
         }
