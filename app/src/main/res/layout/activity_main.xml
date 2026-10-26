@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:background="@color/bg_page">
 
-    <!-- 顶部标题栏：黑底黄字；训练集 / 检查更新 / 更新服务器设置 收进右上角菜单 -->
+    <!-- 顶部标题栏：黑底黄字；检查更新 / 更新服务器设置 收进右上角菜单 -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -27,141 +27,7 @@
         android:layout_width="match_parent"
         android:layout_height="@dimen/hazard_stripe_height" />
 
-    <!-- 统计概览：打钩数 / 出勤人数 / 已载入图片 三个硬投影方块 + 当前状态 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="12dp">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_box_hard_hazard"
-                android:orientation="vertical"
-                android:paddingStart="10dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="13dp"
-                android:paddingBottom="10dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="识别打钩"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label"
-                    android:textColor="@color/on_hazard" />
-
-                <TextView
-                    android:id="@+id/tv_stat_marks"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="0 处"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat"
-                    android:textColor="@color/on_hazard" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1.2"
-                android:background="@drawable/bg_box_hard"
-                android:orientation="vertical"
-                android:paddingStart="10dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="13dp"
-                android:paddingBottom="10dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="出勤人数"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label" />
-
-                <TextView
-                    android:id="@+id/tv_stat_persons"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="0 / 0 人"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_box_hard"
-                android:orientation="vertical"
-                android:paddingStart="10dp"
-                android:paddingTop="7dp"
-                android:paddingEnd="13dp"
-                android:paddingBottom="10dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="已载入图片"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label" />
-
-                <TextView
-                    android:id="@+id/tv_stat_pages"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:text="0 / 0 张"
-                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- 当前状态：空闲为描边标签，识别中由 MainActivity 切为黄底警示标签 -->
-        <TextView
-            android:id="@+id/tv_status_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_tag_outline"
-            android:ellipsize="end"
-            android:fontFamily="sans-serif-condensed"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="3dp"
-            android:paddingBottom="3dp"
-            android:text="正在准备..."
-            android:textColor="@color/text_main"
-            android:textSize="12sp"
-            android:textStyle="bold" />
-
-        <!-- 识别进行中的进度条 (空闲时 invisible 占位，避免布局跳动) -->
-        <com.google.android.material.progressindicator.LinearProgressIndicator
-            android:id="@+id/progress_busy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginStart="-12dp"
-            android:layout_marginEnd="-12dp"
-            android:indeterminate="true"
-            android:visibility="invisible"
-            app:indicatorColor="@color/hazard"
-            app:trackColor="@color/shadow_hard"
-            app:trackThickness="4dp"
-            app:trackCornerRadius="0dp"
-            app:indicatorTrackGapSize="0dp" />
-    </LinearLayout>
-
-    <!-- 页面切换：全部 + 已载入的各页标签，可横向滑动 (由 MainActivity 按 pageItems 动态生成) -->
+    <!-- 页面切换：已导入的各页 + 「＋ 新页」，可横向滑动 (由 MainActivity 按 pageItems 动态生成)；还没有图片时隐藏 -->
     <HorizontalScrollView
         android:id="@+id/scroll_page_chips"
         android:layout_width="match_parent"
@@ -169,8 +35,9 @@
         android:clipToPadding="false"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="4dp"
-        android:scrollbars="none">
+        android:paddingTop="10dp"
+        android:scrollbars="none"
+        android:visibility="gone">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chip_group_pages"
@@ -182,182 +49,161 @@
             app:singleSelection="true" />
     </HorizontalScrollView>
 
-    <!-- 视图切换：效果预览 / 核对名单 -->
-    <com.google.android.material.button.MaterialButtonToggleGroup
-        android:id="@+id/toggle_view"
+    <!-- 当前页状态：左侧标签为打钩数 / 未识别序号 / 识别中 (后两者为黄底警示)，右侧为操作提示 -->
+    <LinearLayout
+        android:id="@+id/layout_page_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="4dp"
-        app:checkedButton="@id/tab_image"
-        app:selectionRequired="true"
-        app:singleSelection="true">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:visibility="gone">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/tab_image"
-            style="@style/Widget.CheckMarkScanner.Button.Segment"
+        <TextView
+            android:id="@+id/tv_status_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_tag_outline"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:textColor="@color/text_main"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_preview_tip"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="效果预览" />
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="2"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/tab_records"
-            style="@style/Widget.CheckMarkScanner.Button.Segment"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="核对名单" />
-    </com.google.android.material.button.MaterialButtonToggleGroup>
+    <!-- 识别 / 导出进行中的进度条 (空闲时 invisible 占位，避免布局跳动) -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progress_busy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:indeterminate="true"
+        android:visibility="invisible"
+        app:indicatorColor="@color/hazard"
+        app:trackColor="@color/shadow_hard"
+        app:trackThickness="4dp"
+        app:trackCornerRadius="0dp"
+        app:indicatorTrackGapSize="0dp" />
 
-    <FrameLayout
+    <ScrollView
+        android:id="@+id/scroll_view_preview"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="12dp">
 
-        <!-- 视图1: 原图画框预览 (默认展示视图) -->
         <LinearLayout
-            android:id="@+id/layout_image_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- 显示选项：坐标标号 / 辅助网格 / 灵敏度 -->
-            <HorizontalScrollView
+            <!-- 当前页照片 + 识别框：点击格子补勾 / 取消。
+                 clickable 使其消费 ACTION_DOWN，才能收到完整手势让 GestureDetector 判定单击；
+                 上下滑动时外层 ScrollView 仍会拦截 -->
+            <ImageView
+                android:id="@+id/iv_preview"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:scrollbars="none">
+                android:clickable="true"
+                android:focusable="false"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
 
-                <com.google.android.material.chip.ChipGroup
+            <!-- 当前页还没有图片 (「＋ 新页」) 时的占位提示 -->
+            <TextView
+                android:id="@+id/tv_preview_empty"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:background="@drawable/bg_placeholder"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:padding="12dp"
+                android:text="这一页还没有图片\n拍照或从相册导入，放到这一页"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <!-- 还没有导入任何图片时：三步使用说明 (硬投影卡片，内边距含右下投影 3dp) -->
+            <LinearLayout
+                android:id="@+id/layout_empty_steps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_box_hard"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="17dp"
+                android:paddingBottom="15dp">
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:chipSpacingHorizontal="6dp"
-                    app:singleLine="true">
+                    android:layout_marginBottom="4dp"
+                    android:text="三步完成登记"
+                    android:textColor="@color/text_main"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sensitivity"
-                        style="@style/Widget.CheckMarkScanner.Chip.Action"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="灵敏度：自适应"
-                        app:chipIcon="@drawable/ic_tune" />
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
 
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_badge"
-                        style="@style/Widget.CheckMarkScanner.Chip.Toggle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="显示单元格坐标" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_grid"
-                        style="@style/Widget.CheckMarkScanner.Chip.Toggle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="辅助网格" />
-                </com.google.android.material.chip.ChipGroup>
-            </HorizontalScrollView>
-
-            <TextView
-                android:id="@+id/tv_preview_tip"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="8dp"
-                android:drawablePadding="6dp"
-                android:fontFamily="sans-serif-condensed"
-                android:text="还没有图片：点底部「拍照」或「相册多选」导入表格照片"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-
-            <ScrollView
-                android:id="@+id/scroll_view_preview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <!-- 单图聚焦模式 (选中某一页时)：点击格子补勾 / 取消。
-                         clickable 使其消费 ACTION_DOWN，才能收到完整手势让 GestureDetector 判定单击；
-                         上下滑动时外层 ScrollView 仍会拦截 -->
-                    <ImageView
-                        android:id="@+id/iv_preview"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:clickable="true"
-                        android:focusable="false"
-                        android:adjustViewBounds="true"
-                        android:scaleType="fitCenter"
-                        android:visibility="gone" />
-
-                    <!-- 「全部」或本页还没有图片时的占位提示；各页图片通过上方页签逐页查看 -->
                     <TextView
-                        android:id="@+id/tv_preview_empty"
-                        android:layout_width="match_parent"
-                        android:layout_height="160dp"
-                        android:background="@drawable/bg_placeholder"
-                        android:gravity="center"
-                        android:lineSpacingExtra="4dp"
-                        android:padding="12dp"
-                        android:text="暂无图片 · 拍照或从相册导入"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="1" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="点底部「拍照」或「相册多选」导入表格照片，一次最多 20 张" />
                 </LinearLayout>
-            </ScrollView>
+
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="2" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="对照照片核对黄框：漏识别的格子点一下补勾，多识别的点一下取消" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="3" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="点「导出 Excel」，在停车情况表上填 1 后分享" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
-
-        <!-- 视图2: 名单与 Excel 单元格列表 -->
-        <LinearLayout
-            android:id="@+id/layout_records_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.CheckMarkScanner.TextInput.Search"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_marginEnd="12dp"
-                android:layout_marginBottom="6dp"
-                app:endIconMode="clear_text"
-                app:hintEnabled="false"
-                app:startIconDrawable="@drawable/ic_search">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_search"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="搜索姓名、车牌或序号"
-                    android:imeOptions="actionSearch"
-                    android:inputType="text"
-                    android:maxLines="1"
-                    android:textSize="14sp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_records"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingBottom="12dp" />
-        </LinearLayout>
-    </FrameLayout>
+    </ScrollView>
 
     <!-- 底部操作栏：拍照 / 相册多选 / 导出 Excel (粗框硬投影按钮，导出为黄色主按钮) -->
     <LinearLayout
