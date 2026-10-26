@@ -119,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
     // 第 1~3 页对应名单序号 1~115，导出时始终参与；第 4 页起只有导入过图片且识别出序号的页才合并导出
     private static final int ROSTER_PAGES = 3;
 
-    // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签与纵览卡片均按此数组动态生成，
+    // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签按此数组动态生成，
     // 标题和标签随识别出的序号范围更新)
     private PageItem[] pageItems = buildPageItems();
 
@@ -137,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
         return items;
     }
 
-    // 0 表示全部图片纵览模式，1~MAX_PAGES 表示聚焦对应单图
+    // 0 表示「全部」(汇总统计与名单)，1~MAX_PAGES 表示聚焦对应单图
     private int currentViewMode = 0;
 
     private RecordAdapter adapter;
@@ -167,14 +167,10 @@ public class MainActivity extends AppCompatActivity {
     private EditText etSearch;
     private RecyclerView rvRecords;
 
-    // 单图预览与多卡片纵览 (标签与卡片在 buildPageViews 中按 pageItems 生成)
+    // 单图预览与无图占位 (页面标签在 buildPageViews 中按 pageItems 生成)
     private ImageView ivPreview;
-    private LinearLayout llAllImagesCards;
+    private TextView tvPreviewEmpty;
     private Chip[] pageChips;
-    private ImageView[] cardImages;
-    private TextView[] cardPlaceholders;
-    private TextView[] cardMarks;
-    private TextView[] cardTitles;
 
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<Uri> cameraLauncher;
@@ -209,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
         rvRecords.setLayoutManager(new LinearLayoutManager(this));
         rvRecords.setAdapter(adapter);
 
-        // 默认显示效果预览视图 (全部图片纵览模式，仅框)
+        // 默认显示效果预览视图的「全部」页 (仅框)
         switchTab(0);
         switchViewMode(0);
 
@@ -254,45 +250,53 @@ public class MainActivity extends AppCompatActivity {
         rvRecords = findViewById(R.id.rv_records);
 
         ivPreview = findViewById(R.id.iv_preview);
-        llAllImagesCards = findViewById(R.id.ll_all_images_cards);
+        tvPreviewEmpty = findViewById(R.id.tv_preview_empty);
     }
 
     /**
-     * 按 pageItems 生成顶部页面标签 (全部 + 每页) 与纵览模式下的图片卡片
+     * 按 pageItems 生成顶部页面标签 (全部 + 每页)，各页标签的显隐与文字由 updatePageChips 刷新
      */
     private void buildPageViews() {
         LayoutInflater inflater = getLayoutInflater();
         chipGroupPages.removeAllViews();
-        llAllImagesCards.removeAllViews();
 
         pageChips = new Chip[pageItems.length + 1];
-        cardImages = new ImageView[pageItems.length];
-        cardPlaceholders = new TextView[pageItems.length];
-        cardMarks = new TextView[pageItems.length];
-        cardTitles = new TextView[pageItems.length];
-
         for (int mode = 0; mode <= pageItems.length; mode++) {
             final int targetMode = mode;
             Chip chip = (Chip) inflater.inflate(R.layout.chip_page, chipGroupPages, false);
             chip.setId(View.generateViewId());
-            // 已载入张数见统计栏，这里不写总页数，免得误以为已有 20 张图
-            chip.setText(mode == 0 ? "全部" : pageItems[mode - 1].tabName);
+            if (mode == 0) chip.setText("全部");
             chip.setOnClickListener(v -> switchViewMode(targetMode));
             chipGroupPages.addView(chip);
             pageChips[mode] = chip;
         }
+        updatePageChips();
+    }
 
+    /**
+     * 页面标签只列出已载入图片的页，另留一个「＋ 新页」指向第一张空白页，供逐张拍照时往后加页；
+     * 还没有任何图片时只剩「全部」，免得一打开就挂满 20 个空标签
+     */
+    private void updatePageChips() {
+        int firstEmpty = -1;
         for (int i = 0; i < pageItems.length; i++) {
-            final int targetMode = i + 1;
-            View card = inflater.inflate(R.layout.item_page_card, llAllImagesCards, false);
-            cardTitles[i] = card.findViewById(R.id.tv_card_title);
-            cardTitles[i].setText(pageItems[i].title);
-            cardImages[i] = card.findViewById(R.id.iv_card);
-            cardPlaceholders[i] = card.findViewById(R.id.tv_card_placeholder);
-            cardMarks[i] = card.findViewById(R.id.tv_card_marks);
-            // 点击全图列表中的卡片，可直接快捷进入该图的单图聚焦微调视图
-            card.setOnClickListener(v -> switchViewMode(targetMode));
-            llAllImagesCards.addView(card);
+            if (pageItems[i].originalBitmap == null) {
+                firstEmpty = i;
+                break;
+            }
+        }
+        boolean anyLoaded = countLoadedPages() > 0;
+        for (int i = 0; i < pageItems.length; i++) {
+            Chip chip = pageChips[i + 1];
+            if (pageItems[i].originalBitmap != null) {
+                chip.setText(pageItems[i].tabName);
+                chip.setVisibility(View.VISIBLE);
+            } else if (i == firstEmpty && anyLoaded) {
+                chip.setText("＋ 新页");
+                chip.setVisibility(View.VISIBLE);
+            } else {
+                chip.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -465,26 +469,33 @@ public class MainActivity extends AppCompatActivity {
         updatePageNavUI(mode);
 
         if (mode == 0) {
-            // 全部图片纵览模式
-            llAllImagesCards.setVisibility(View.VISIBLE);
+            // 全部：只汇总统计与名单，图片通过上方页签逐页查看
             ivPreview.setVisibility(View.GONE);
+            tvPreviewEmpty.setVisibility(View.VISIBLE);
             adapter.setRecords(getCombinedRecords(1, 2, 3));
-            tvPreviewTip.setText(countLoadedPages() > 0
-                ? "点击任意图片进入单页，可逐格补勾 / 取消"
-                : "还没有图片：点底部「拍照」或「相册多选」导入表格照片");
+            int loadedPages = countLoadedPages();
+            if (loadedPages > 0) {
+                tvPreviewTip.setText("点上方页签查看某一页，可逐格补勾 / 取消");
+                tvPreviewEmpty.setText("已导入 " + loadedPages + " 张图片\n左右滑动上方页签逐页查看");
+            } else {
+                tvPreviewTip.setText("还没有图片：点底部「拍照」或「相册多选」导入表格照片");
+                tvPreviewEmpty.setText("暂无图片 · 拍照或从相册导入");
+            }
         } else {
             // 单图聚焦模式
-            llAllImagesCards.setVisibility(View.GONE);
-            ivPreview.setVisibility(View.VISIBLE);
-
             PageItem item = pageItems[mode - 1];
+            boolean hasImage = item.originalBitmap != null;
+            ivPreview.setVisibility(hasImage ? View.VISIBLE : View.GONE);
+            tvPreviewEmpty.setVisibility(hasImage ? View.GONE : View.VISIBLE);
+            tvPreviewEmpty.setText("暂无图片 · 拍照或从相册导入");
+
             if (item.annotatedBitmap != null) {
                 ivPreview.setImageBitmap(item.annotatedBitmap);
             } else {
                 ivPreview.setImageBitmap(item.originalBitmap);
             }
             adapter.setRecords(item.records);
-            tvPreviewTip.setText(item.originalBitmap != null
+            tvPreviewTip.setText(hasImage
                 ? "点击表格中的格子即可补勾 / 取消，修正会自动累计为训练样本"
                 : "本页暂无图片：拍照或从相册导入后即可识别");
         }
@@ -498,7 +509,7 @@ public class MainActivity extends AppCompatActivity {
         // ChipGroup 为单选，选中目标标签会自动取消其余标签
         Chip selected = pageChips[mode];
         selected.setChecked(true);
-        // 代码切换页面时 (如多选导入后回到纵览)，把选中的标签滚动到可见位置
+        // 代码切换页面时 (如导入后跳到新导入的页)，把选中的标签滚动到可见位置
         selected.post(() -> scrollPageChips.smoothScrollTo(
             Math.max(0, selected.getLeft() - scrollPageChips.getPaddingStart()), 0));
     }
@@ -613,31 +624,12 @@ public class MainActivity extends AppCompatActivity {
             final int finalTotal = totalAllMarks;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                updateAllCardsUI();
+                updatePageChips();
                 switchViewMode(currentViewMode);
                 setBusy(false, "已就绪 (" + finalTotal + "处打钩)");
                 StyledToast.show(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT);
             });
         });
-    }
-
-    private void updateAllCardsUI() {
-        for (int i = 0; i < pageItems.length; i++) {
-            PageItem item = pageItems[i];
-            cardTitles[i].setText(item.title);
-            pageChips[i + 1].setText(item.tabName);
-            Bitmap shown = (item.annotatedBitmap != null) ? item.annotatedBitmap : item.originalBitmap;
-            if (shown != null) {
-                cardImages[i].setImageBitmap(shown);
-                cardImages[i].setVisibility(View.VISIBLE);
-                cardPlaceholders[i].setVisibility(View.GONE);
-                cardMarks[i].setText(item.detectedMarksCount + " 处打钩");
-            } else {
-                cardImages[i].setVisibility(View.GONE);
-                cardPlaceholders[i].setVisibility(View.VISIBLE);
-                cardMarks[i].setText("未载入");
-            }
-        }
     }
 
     private void refreshAllImageOverlays() {
@@ -649,7 +641,6 @@ public class MainActivity extends AppCompatActivity {
                 );
             }
         }
-        updateAllCardsUI();
         if (currentViewMode >= 1 && currentViewMode <= pageItems.length) {
             PageItem cur = pageItems[currentViewMode - 1];
             if (cur.annotatedBitmap != null) {
@@ -736,7 +727,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 导入一张或多张图片：从当前聚焦页开始 (纵览模式从第 1 页开始)，按选择顺序依次填入后续页面。
+     * 导入一张或多张图片：从当前聚焦页开始 (「全部」从第 1 页开始)，按选择顺序依次填入后续页面。
      * 超出剩余页数的图片会被忽略并提示。
      */
     private void importImages(List<Uri> uris) {
@@ -754,6 +745,7 @@ public class MainActivity extends AppCompatActivity {
             List<String> doneNames = new ArrayList<>();
             List<String> unmergedNames = new ArrayList<>();
             int failed = 0;
+            int firstDone = -1;
 
             for (int i = 0; i < total; i++) {
                 PageItem target = pageItems[startIdx + i];
@@ -769,6 +761,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     target.fromUser = true;
                     analyzePage(target, bitmap);
+                    if (firstDone < 0) firstDone = startIdx + i;
                     // 提示里只用短名 (去掉括号里的序号范围)，避免 Toast 超过两行被截断
                     String shortName = target.tabName.replaceAll("\\s*\\(.*\\)", "");
                     doneNames.add(shortName + " " + target.detectedMarksCount + "处");
@@ -780,15 +773,12 @@ public class MainActivity extends AppCompatActivity {
             }
 
             final int failedCount = failed;
+            final int firstDonePage = firstDone;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                updateAllCardsUI();
-                // 单张：直接聚焦该页便于微调；多张：回到纵览查看全部结果
-                if (total == 1) {
-                    switchViewMode(failedCount == 0 ? startIdx + 1 : currentViewMode);
-                } else {
-                    switchViewMode(0);
-                }
+                updatePageChips();
+                // 聚焦到导入的第一页便于核对微调，其余页从上方页签切换
+                switchViewMode(firstDonePage >= 0 ? firstDonePage + 1 : currentViewMode);
 
                 StringBuilder msg = new StringBuilder();
                 if (!doneNames.isEmpty()) {
@@ -936,7 +926,7 @@ public class MainActivity extends AppCompatActivity {
             }
             tvStatMarks.setText(totalAllMarks + " 处");
             tvStatPersons.setText(attended + " / " + fullRoster.size() + " 人");
-            tvStatusBadge.setText(loadedPages > 0 ? "全部图片 (" + loadedPages + "张纵览)" : "等待导入表格照片");
+            tvStatusBadge.setText(loadedPages > 0 ? "全部图片 (" + loadedPages + "张)" : "等待导入表格照片");
         } else {
             PageItem item = pageItems[currentViewMode - 1];
             int attended = 0;
@@ -952,7 +942,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateSummaryText() {
         StringBuilder sb = new StringBuilder();
         sb.append("📋 【").append(ShiftConstants.TABLE_TITLE).append(" - 打钩识别与Excel核对报表】\n");
-        sb.append("显示视图: ").append(currentViewMode == 0 ? "全部图片 (纵览模式)" : pageItems[currentViewMode - 1].title).append("\n");
+        sb.append("显示视图: ").append(currentViewMode == 0 ? "全部图片" : pageItems[currentViewMode - 1].title).append("\n");
         sb.append("--------------------------------------------------\n\n");
 
         List<ParkingRecord> targetRecords = (currentViewMode == 0)
