@@ -1,8 +1,8 @@
 {
-  "versionCode": 29,
-  "versionName": "2.6.1",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.1.apk",
+  "versionCode": 30,
+  "versionName": "2.6.2",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.2.apk",
   "apkSize": "26.7MB",
-  "updateLog": "1. 修复 OCR 把相邻两行识别成同一序号、导致打钩写到错误 Excel 行的问题（例如第 41 号写进第 43 行）：同一页的序号改为按投票得出的起始号连续编号\n2. 包含 2.6.0 的全部改进：新界面、相册一次多选、导出入口合并",
+  "updateLog": "1. 不在岗亭 Wi‑Fi 时也能快速更新：自动改走国内线路下载，无需任何设置\n2. 更新线路自动切换：局域网 → 国内中转 → 公网备用，某条不通时自动换下一条\n3. 修复「更新服务器设置」里的地址可能被误重置的问题",
   "forceUpdate": false
 }
