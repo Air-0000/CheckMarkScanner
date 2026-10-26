@@ -1,8 +1,8 @@
 {
-  "versionCode": 31,
-  "versionName": "2.6.3",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.3.apk",
+  "versionCode": 32,
+  "versionName": "2.6.4",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.4.apk",
   "apkSize": "26.7MB",
-  "updateLog": "1. 检查更新更快：同时检测局域网、国内中转和公网备用线路，自动选用最合适的一条，不在岗亭时不再等待\n2. 之前手动填过中转或公网更新地址的手机，会自动恢复为默认设置，在岗亭里也能走局域网快速下载",
+  "updateLog": "1. 导出 Excel 直接填进《停车情况》表：在原表副本上把打钩填为 1，格式和名单都不变\n2. 导出文件按当周命名（如 停车情况10.19-10.25.xlsx），表头日期自动改为本周一至周日\n3. 修复导出时表头的日期、星期、白/夜被误填 1 的问题\n4. 去掉「生成新表格」导出方式",
   "forceUpdate": false
 }
