@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 可点击卡片：描边 + 右下硬投影，按下时下沉 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <layer-list>
+            <item android:bottom="@dimen/hard_shadow" android:right="@dimen/hard_shadow">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/disabled_bg" />
+                    <stroke android:width="@dimen/stroke_regular" android:color="@color/line_soft" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    <!-- 按下：投影消失、色块下沉到投影位置 -->
+    <item android:state_pressed="true">
+        <layer-list>
+            <item android:left="@dimen/hard_shadow" android:top="@dimen/hard_shadow">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/bg_sunken" />
+                    <stroke android:width="@dimen/stroke_regular" android:color="@color/line" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+    <item>
+        <layer-list>
+            <item android:left="@dimen/hard_shadow" android:top="@dimen/hard_shadow">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/shadow_hard" />
+                </shape>
+            </item>
+            <item android:bottom="@dimen/hard_shadow" android:right="@dimen/hard_shadow">
+                <shape android:shape="rectangle">
+                    <solid android:color="@color/bg_card" />
+                    <stroke android:width="@dimen/stroke_regular" android:color="@color/line" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

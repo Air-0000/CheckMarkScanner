@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 下载进度条：粗黑框槽 + 黄色进度 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/bg_sunken" />
+            <stroke android:width="@dimen/stroke_bold" android:color="@color/line" />
+        </shape>
+    </item>
+    <item
+        android:id="@android:id/progress"
+        android:bottom="@dimen/stroke_bold"
+        android:left="@dimen/stroke_bold"
+        android:right="@dimen/stroke_bold"
+        android:top="@dimen/stroke_bold">
+        <clip>
+            <shape android:shape="rectangle">
+                <solid android:color="@color/hazard" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

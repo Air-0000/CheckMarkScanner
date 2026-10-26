@@ -307,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
                 if (isGranted) {
                     startCameraCapture();
                 } else {
-                    Toast.makeText(this, "需要相机权限拍摄纸张表格", Toast.LENGTH_SHORT).show();
+                    StyledToast.show(this, "需要相机权限拍摄纸张表格", Toast.LENGTH_SHORT);
                 }
             }
         );
@@ -427,12 +427,20 @@ public class MainActivity extends AppCompatActivity {
         if (statusText != null) {
             tvStatusBadge.setText(statusText);
         }
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, busy ? R.color.primary : R.color.checked_green));
+        applyStatusBadgeStyle(busy);
+    }
+
+    /**
+     * 状态标签：识别中为黄底警示样式，空闲时为描边样式
+     */
+    private void applyStatusBadgeStyle(boolean busy) {
+        tvStatusBadge.setBackgroundResource(busy ? R.drawable.bg_tag_hazard : R.drawable.bg_tag_outline);
+        tvStatusBadge.setTextColor(ContextCompat.getColor(this, busy ? R.color.on_hazard : R.color.text_main));
     }
 
     private boolean rejectIfBusy() {
         if (isBusy) {
-            Toast.makeText(this, "正在识别中，请稍候...", Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "正在识别中，请稍候...", Toast.LENGTH_SHORT);
         }
         return isBusy;
     }
@@ -463,7 +471,7 @@ public class MainActivity extends AppCompatActivity {
                 ? "点击表格中的格子即可补勾 / 取消，修正会自动累计为训练样本"
                 : "本页暂无图片：拍照或从相册导入后即可识别");
         }
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.checked_green));
+        applyStatusBadgeStyle(isBusy);
 
         updateStatsDisplay();
         updateSummaryText();
@@ -548,7 +556,7 @@ public class MainActivity extends AppCompatActivity {
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
                 setBusy(false, loadedSamples + " 张示例图已就绪 (仅框)");
-                Toast.makeText(MainActivity.this, "已载入全部 " + loadedSamples + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
+                StyledToast.show(MainActivity.this, "已载入全部 " + loadedSamples + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT);
             });
         });
     }
@@ -576,7 +584,7 @@ public class MainActivity extends AppCompatActivity {
             chipSensitivity.setText("灵敏度：自适应");
             tip = "已切换为【智能自适应模式】：标准均衡推荐";
         }
-        Toast.makeText(this, tip, Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, tip, Toast.LENGTH_SHORT);
         reprocessAllPagesWithSensitivity();
     }
 
@@ -613,7 +621,7 @@ public class MainActivity extends AppCompatActivity {
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
                 setBusy(false, "已就绪 (" + finalTotal + "处打钩)");
-                Toast.makeText(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT).show();
+                StyledToast.show(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT);
             });
         });
     }
@@ -725,7 +733,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 String state = nowChecked ? "已补勾 [√]" : "已取消";
-                Toast.makeText(this, rec.getName() + " · " + shift + " (" + cell + ") -> " + state + " (已累计为训练样本)", Toast.LENGTH_SHORT).show();
+                StyledToast.show(this, rec.getName() + " · " + shift + " (" + cell + ") -> " + state + " (已累计为训练样本)", Toast.LENGTH_SHORT);
             }
         }
     }
@@ -792,7 +800,7 @@ public class MainActivity extends AppCompatActivity {
                 setBusy(false, doneNames.isEmpty() ? "图片读取失败" : "已导入 " + doneNames.size() + " 张图片");
 
                 if (failedCount == 0 && skipped == 0 && unmergedNames.isEmpty()) {
-                    Toast.makeText(MainActivity.this, msg.toString(), Toast.LENGTH_LONG).show();
+                    StyledToast.show(MainActivity.this, msg.toString(), Toast.LENGTH_LONG);
                     return;
                 }
                 // 有读取失败、超出页数被忽略或无法合并导出的图片时用弹窗完整说明，避免 Toast 截断漏看
@@ -827,7 +835,7 @@ public class MainActivity extends AppCompatActivity {
             cameraLauncher.launch(cameraImageUri);
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "启动相机失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "启动相机失败: " + e.getMessage(), Toast.LENGTH_SHORT);
         }
     }
 
@@ -857,7 +865,7 @@ public class MainActivity extends AppCompatActivity {
             if (!newPlate.isEmpty()) record.setPlateNumber(newPlate);
             adapter.notifyItemChanged(position);
             updateSummaryText();
-            Toast.makeText(this, "已更新: " + record.getName() + " (" + record.getPlateNumber() + ")", Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "已更新: " + record.getName() + " (" + record.getPlateNumber() + ")", Toast.LENGTH_SHORT);
         });
         builder.setNegativeButton("取消", null);
         builder.show();
@@ -1061,11 +1069,11 @@ public class MainActivity extends AppCompatActivity {
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("打钩识别结果", summaryText);
         cm.setPrimaryClip(clip);
-        Toast.makeText(this, "已复制 Excel 映射结果到剪贴板！", Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, "已复制 Excel 映射结果到剪贴板！", Toast.LENGTH_SHORT);
     }
 
     private void processExcelFilling(Uri userExcelUri) {
-        Toast.makeText(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT);
         setBusy(true, "正在执行按表填1并导出...");
 
         // 在主线程取好合并后的副本再交给后台，避免与界面上的补勾 / 取消同时读写各页记录
@@ -1086,7 +1094,7 @@ public class MainActivity extends AppCompatActivity {
                     // 自动将现场已核对通过的表格累计入训练数据库
                     autoRecordVerifiedPagesToDataset();
 
-                    Toast.makeText(MainActivity.this, "已按输入表格成功填入 " + result.filledMarksCount + " 处 1，正在调起导出！", Toast.LENGTH_LONG).show();
+                    StyledToast.show(MainActivity.this, "已按输入表格成功填入 " + result.filledMarksCount + " 处 1，正在调起导出！", Toast.LENGTH_LONG);
                     // 和原来导出表格完全一样，直接调起系统分享 / 微信 / WPS
                     ExcelExporter.shareFile(MainActivity.this, result.outputFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
                 } else {

@@ -1,35 +1,269 @@
 <resources>
-    <style name="Theme.CheckMarkScanner" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorOnPrimary">@android:color/white</item>
-        <item name="colorPrimaryContainer">@color/primary_light</item>
-        <item name="colorOnPrimaryContainer">@color/primary_dark</item>
-        <item name="colorSecondary">@color/checked_green</item>
-        <item name="colorOnSecondary">@android:color/white</item>
-        <item name="colorSecondaryContainer">@color/accent_light</item>
-        <item name="colorOnSecondaryContainer">@color/primary_dark</item>
-        <item name="colorSurface">@color/card_bg</item>
+    <!-- 黄黑警示风：直角、粗黑描边、右下硬投影；颜色随 values-night 切换深色模式 -->
+    <style name="Theme.CheckMarkScanner" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/selected_bg</item>
+        <item name="colorOnPrimary">@color/on_selected</item>
+        <item name="colorPrimaryContainer">@color/hazard</item>
+        <item name="colorOnPrimaryContainer">@color/on_hazard</item>
+        <item name="colorSecondary">@color/hazard</item>
+        <item name="colorOnSecondary">@color/on_hazard</item>
+        <item name="colorSecondaryContainer">@color/hazard</item>
+        <item name="colorOnSecondaryContainer">@color/on_hazard</item>
+        <item name="colorTertiary">@color/hazard</item>
+        <item name="colorOnTertiary">@color/on_hazard</item>
+        <item name="colorError">@color/danger</item>
+        <item name="colorSurface">@color/bg_card</item>
         <item name="colorOnSurface">@color/text_main</item>
-        <item name="colorSurfaceVariant">@color/surface_container_high</item>
+        <item name="colorSurfaceVariant">@color/bg_sunken</item>
         <item name="colorOnSurfaceVariant">@color/text_secondary</item>
-        <item name="colorSurfaceContainerLowest">@color/surface_container_lowest</item>
-        <item name="colorSurfaceContainerLow">@color/surface_container_low</item>
-        <item name="colorSurfaceContainer">@color/surface_container</item>
-        <item name="colorSurfaceContainerHigh">@color/surface_container_high</item>
-        <item name="colorSurfaceContainerHighest">@color/surface_container_highest</item>
-        <item name="colorOutline">@color/chip_border</item>
-        <item name="colorOutlineVariant">@color/border</item>
-        <item name="android:colorBackground">@color/background</item>
-        <item name="android:windowBackground">@color/background</item>
-        <item name="android:statusBarColor">@color/primary_dark</item>
+        <!-- 关掉 Material3 的分层色调，卡片 / 弹层统一为纯色 -->
+        <item name="colorSurfaceContainerLowest">@color/bg_card</item>
+        <item name="colorSurfaceContainerLow">@color/bg_card</item>
+        <item name="colorSurfaceContainer">@color/bg_card</item>
+        <item name="colorSurfaceContainerHigh">@color/bg_card</item>
+        <item name="colorSurfaceContainerHighest">@color/bg_sunken</item>
+        <item name="colorOutline">@color/line</item>
+        <item name="colorOutlineVariant">@color/line_soft</item>
+        <!-- 输入框下划线 / 光标：浅色为黑、深色为黄，避免白底上的黄色看不清 -->
+        <item name="colorControlActivated">@color/selected_bg</item>
+        <item name="colorControlHighlight">@color/ripple</item>
+        <item name="android:colorBackground">@color/bg_page</item>
+        <item name="android:windowBackground">@color/bg_page</item>
+        <item name="android:textColorPrimary">@color/text_main</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="android:statusBarColor">@color/bar_bg</item>
+        <item name="android:navigationBarColor">@color/bar_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.CheckMarkScanner.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.CheckMarkScanner.BottomSheet</item>
     </style>
 
-    <!-- 标题栏溢出菜单：沿用应用的中性底色，避免 Material3 默认的淡紫色 -->
-    <style name="ThemeOverlay.CheckMarkScanner.Popup" parent="ThemeOverlay.Material3.Light">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorSurface">@color/card_bg</item>
+    <!-- 方角形状 -->
+    <style name="ShapeAppearance.CheckMarkScanner.Square" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">0dp</item>
+    </style>
+
+    <!-- ===== 文字 ===== -->
+    <!-- 标题栏标题：警示黄粗体 -->
+    <style name="TextAppearance.CheckMarkScanner.ToolbarTitle" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="android:textColor">@color/hazard</item>
+    </style>
+
+    <style name="TextAppearance.CheckMarkScanner.ToolbarSubtitle" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:textColor">@color/bar_subtitle</item>
+    </style>
+
+    <!-- 统计数字：窄体粗字 -->
+    <style name="TextAppearance.CheckMarkScanner.Stat" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_main</item>
+    </style>
+
+    <!-- 小标签：窄体粗字 + 字距 -->
+    <style name="TextAppearance.CheckMarkScanner.Label" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.CheckMarkScanner.Button" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.02</item>
+    </style>
+
+    <style name="TextAppearance.CheckMarkScanner.Chip" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- 对话框 / 底部弹层标题 -->
+    <style name="TextAppearance.CheckMarkScanner.DialogTitle" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">19sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_main</item>
+    </style>
+
+    <!-- ===== 标题栏 ===== -->
+    <style name="ThemeOverlay.CheckMarkScanner.Toolbar" parent="ThemeOverlay.Material3.Dark.ActionBar">
+        <!-- 右上角溢出菜单图标为警示黄 -->
+        <item name="colorControlNormal">@color/hazard</item>
+        <item name="colorControlHighlight">#33FFD60A</item>
+    </style>
+
+    <!-- 标题栏溢出菜单：直角粗框弹层；文字颜色显式指定，避免继承标题栏的深色覆盖 -->
+    <style name="ThemeOverlay.CheckMarkScanner.Popup" parent="ThemeOverlay.Material3">
+        <item name="colorSurface">@color/bg_card</item>
         <item name="colorOnSurface">@color/text_main</item>
-        <item name="colorSurfaceContainer">@color/surface_container_lowest</item>
-        <item name="colorSurfaceContainerLow">@color/surface_container_lowest</item>
+        <item name="colorControlHighlight">@color/ripple</item>
+        <item name="android:textColorPrimary">@color/text_main</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="actionOverflowMenuStyle">@style/Widget.CheckMarkScanner.PopupMenu.Overflow</item>
+        <item name="popupMenuStyle">@style/Widget.CheckMarkScanner.PopupMenu</item>
+        <item name="textAppearanceLargePopupMenu">@style/TextAppearance.CheckMarkScanner.PopupMenu</item>
+        <item name="textAppearanceSmallPopupMenu">@style/TextAppearance.CheckMarkScanner.PopupMenu</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.PopupMenu" parent="Widget.Material3.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_popup</item>
+        <item name="android:popupElevation">0dp</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.PopupMenu.Overflow" parent="Widget.Material3.PopupMenu.Overflow">
+        <item name="android:popupBackground">@drawable/bg_popup</item>
+        <item name="android:popupElevation">0dp</item>
+    </style>
+
+    <style name="TextAppearance.CheckMarkScanner.PopupMenu" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textColor">@color/text_main</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- ===== 按钮 ===== -->
+    <!-- 底部操作按钮：自绘直角硬投影背景 (backgroundTint 置空才能使用自定义 background) -->
+    <style name="Widget.CheckMarkScanner.Button.Hard" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/btn_hard_secondary</item>
+        <item name="backgroundTint">@null</item>
+        <item name="android:textColor">@color/sel_btn_text</item>
+        <item name="iconTint">@color/sel_btn_text</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Button</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:minHeight">52dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <!-- 右下 3dp 是投影区，内边距相应加大让文字居中于色块 -->
+        <item name="android:paddingBottom">@dimen/hard_shadow</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.Button.Hard.Primary">
+        <item name="android:background">@drawable/btn_hard_primary</item>
+        <item name="android:textColor">@color/sel_btn_primary_text</item>
+        <item name="iconTint">@color/sel_btn_primary_text</item>
+    </style>
+
+    <!-- 效果预览 / 核对名单 分段切换：粗框直角，选中反色 -->
+    <style name="Widget.CheckMarkScanner.Button.Segment" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="backgroundTint">@color/sel_selectable_bg</item>
+        <item name="android:textColor">@color/sel_selectable_text</item>
+        <item name="strokeColor">@color/line</item>
+        <item name="strokeWidth">@dimen/stroke_bold</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Button</item>
+        <item name="rippleColor">@color/ripple</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:insetTop">2dp</item>
+        <item name="android:insetBottom">2dp</item>
+    </style>
+
+    <!-- ===== 标签 (Chip) ===== -->
+    <!-- 页面切换标签：选中反色 -->
+    <style name="Widget.CheckMarkScanner.Chip.Page" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/sel_selectable_bg</item>
+        <item name="android:textColor">@color/sel_selectable_text</item>
+        <item name="chipStrokeColor">@color/sel_line</item>
+        <item name="chipStrokeWidth">@dimen/stroke_regular</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Chip</item>
+        <item name="checkedIconVisible">false</item>
+        <item name="rippleColor">@color/ripple</item>
+        <item name="chipMinHeight">34dp</item>
+    </style>
+
+    <!-- 开关标签 (显示坐标 / 辅助网格)：打开时亮黄 + 黑色对勾 -->
+    <style name="Widget.CheckMarkScanner.Chip.Toggle" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/sel_toggle_bg</item>
+        <item name="android:textColor">@color/sel_toggle_text</item>
+        <item name="checkedIconTint">@color/on_hazard</item>
+        <item name="chipStrokeColor">@color/sel_line</item>
+        <item name="chipStrokeWidth">@dimen/stroke_regular</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Chip</item>
+        <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- 动作标签 (灵敏度切换) -->
+    <style name="Widget.CheckMarkScanner.Chip.Action" parent="Widget.Material3.Chip.Assist">
+        <item name="chipBackgroundColor">@color/sel_toggle_bg</item>
+        <item name="android:textColor">@color/sel_btn_text</item>
+        <item name="chipIconTint">@color/sel_btn_text</item>
+        <item name="chipStrokeColor">@color/sel_line</item>
+        <item name="chipStrokeWidth">@dimen/stroke_regular</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Chip</item>
+        <item name="rippleColor">@color/ripple</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <!-- ===== 输入框 ===== -->
+    <style name="Widget.CheckMarkScanner.TextInput.Search" parent="Widget.Material3.TextInputLayout.OutlinedBox.Dense">
+        <item name="boxBackgroundColor">@color/bg_card</item>
+        <item name="boxStrokeColor">@color/sel_input_stroke</item>
+        <item name="boxStrokeWidth">@dimen/stroke_regular</item>
+        <item name="boxStrokeWidthFocused">@dimen/stroke_bold</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="startIconTint">@color/text_main</item>
+        <item name="endIconTint">@color/text_secondary</item>
+        <item name="cursorColor">@color/text_main</item>
+    </style>
+
+    <!-- ===== 对话框 (androidx AlertDialog.Builder 全局生效) ===== -->
+    <style name="ThemeOverlay.CheckMarkScanner.Dialog" parent="ThemeOverlay.Material3.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
+        <item name="android:windowElevation">0dp</item>
+        <item name="android:windowTitleStyle">@style/Widget.CheckMarkScanner.DialogTitle</item>
+        <item name="android:textColorPrimary">@color/text_main</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="colorPrimary">@color/text_main</item>
+        <item name="colorControlActivated">@color/text_main</item>
+        <item name="colorControlHighlight">@color/ripple</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.CheckMarkScanner.DialogButton.Positive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.CheckMarkScanner.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.CheckMarkScanner.DialogButton</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.DialogTitle" parent="RtlOverlay.DialogWindowTitle.AppCompat">
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.DialogTitle</item>
+        <item name="android:maxLines">2</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.DialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/text_main</item>
+        <item name="android:textAppearance">@style/TextAppearance.CheckMarkScanner.Button</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="rippleColor">@color/ripple</item>
+    </style>
+
+    <!-- 对话框主按钮：黄底黑框 -->
+    <style name="Widget.CheckMarkScanner.DialogButton.Positive">
+        <item name="backgroundTint">@color/sel_dialog_positive_bg</item>
+        <item name="android:textColor">@color/on_hazard</item>
+        <item name="strokeColor">@color/line</item>
+        <item name="strokeWidth">@dimen/stroke_bold</item>
+    </style>
+
+    <!-- ===== 底部弹层 ===== -->
+    <style name="ThemeOverlay.CheckMarkScanner.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.CheckMarkScanner.BottomSheet</item>
+        <item name="android:navigationBarColor">@color/bg_card</item>
+    </style>
+
+    <style name="Widget.CheckMarkScanner.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">@color/bg_card</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CheckMarkScanner.Square</item>
+        <item name="shapeAppearanceOverlay">@null</item>
+        <item name="android:elevation">0dp</item>
     </style>
 </resources>

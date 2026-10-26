@@ -4,146 +4,145 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background">
+    android:background="@color/bg_page">
 
-    <!-- 顶部标题栏：训练集 / 重载示例 / 检查更新 收进右上角菜单 -->
+    <!-- 顶部标题栏：黑底黄字；训练集 / 重载示例 / 检查更新 收进右上角菜单 -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:minHeight="?attr/actionBarSize"
-        android:background="@color/primary"
-        android:theme="@style/ThemeOverlay.Material3.Dark.ActionBar"
+        android:background="@color/bar_bg"
+        android:theme="@style/ThemeOverlay.CheckMarkScanner.Toolbar"
         app:popupTheme="@style/ThemeOverlay.CheckMarkScanner.Popup"
         app:menu="@menu/menu_main"
         app:title="@string/app_name"
-        app:titleTextAppearance="@style/TextAppearance.Material3.TitleMedium"
-        app:titleTextColor="@android:color/white"
-        app:subtitleTextAppearance="@style/TextAppearance.Material3.BodySmall"
-        app:subtitleTextColor="@color/toolbar_subtitle" />
+        app:titleTextAppearance="@style/TextAppearance.CheckMarkScanner.ToolbarTitle"
+        app:titleTextColor="@color/hazard"
+        app:subtitleTextAppearance="@style/TextAppearance.CheckMarkScanner.ToolbarSubtitle"
+        app:subtitleTextColor="@color/bar_subtitle" />
 
-    <!-- 统计概览：打钩数 / 出勤人数 / 已载入图片 + 当前状态 -->
+    <!-- 标题栏下方的黄黑警示条纹 -->
+    <com.parking.checkscanner.HazardStripeView
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/hazard_stripe_height" />
+
+    <!-- 统计概览：打钩数 / 出勤人数 / 已载入图片 三个硬投影方块 + 当前状态 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/card_bg"
         android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
         android:paddingTop="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:baselineAligned="false"
-            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:background="@drawable/bg_box_hard_hazard"
+                android:orientation="vertical"
+                android:paddingStart="10dp"
+                android:paddingTop="7dp"
+                android:paddingEnd="13dp"
+                android:paddingBottom="10dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="识别打钩"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label"
+                    android:textColor="@color/on_hazard" />
 
                 <TextView
                     android:id="@+id/tv_stat_marks"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:text="0 处"
-                    android:textColor="@color/primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat"
+                    android:textColor="@color/on_hazard" />
             </LinearLayout>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="28dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="12dp"
-                android:background="@color/border" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:layout_weight="1.2"
-                android:orientation="vertical">
+                android:background="@drawable/bg_box_hard"
+                android:orientation="vertical"
+                android:paddingStart="10dp"
+                android:paddingTop="7dp"
+                android:paddingEnd="13dp"
+                android:paddingBottom="10dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="出勤人数"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label" />
 
                 <TextView
                     android:id="@+id/tv_stat_persons"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:text="0 / 0 人"
-                    android:textColor="@color/badge_text"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat" />
             </LinearLayout>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="28dp"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="12dp"
-                android:background="@color/border" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:background="@drawable/bg_box_hard"
+                android:orientation="vertical"
+                android:paddingStart="10dp"
+                android:paddingTop="7dp"
+                android:paddingEnd="13dp"
+                android:paddingBottom="10dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="已载入图片"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Label" />
 
                 <TextView
                     android:id="@+id/tv_stat_pages"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
                     android:maxLines="1"
                     android:text="0 / 0 张"
-                    android:textColor="@color/text_main"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:textAppearance="@style/TextAppearance.CheckMarkScanner.Stat" />
             </LinearLayout>
         </LinearLayout>
 
+        <!-- 当前状态：空闲为描边标签，识别中由 MainActivity 切为黄底警示标签 -->
         <TextView
             android:id="@+id/tv_status_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_badge"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_tag_outline"
             android:ellipsize="end"
+            android:fontFamily="sans-serif-condensed"
             android:maxLines="1"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
             android:text="正在准备..."
-            android:textColor="@color/checked_green"
-            android:textSize="12sp" />
+            android:textColor="@color/text_main"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <!-- 识别进行中的进度条 (空闲时 invisible 占位，避免布局跳动) -->
         <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -151,11 +150,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:layout_marginStart="-16dp"
-            android:layout_marginEnd="-16dp"
+            android:layout_marginStart="-12dp"
+            android:layout_marginEnd="-12dp"
             android:indeterminate="true"
             android:visibility="invisible"
-            app:trackThickness="3dp" />
+            app:indicatorColor="@color/hazard"
+            app:trackColor="@color/shadow_hard"
+            app:trackThickness="4dp"
+            app:trackCornerRadius="0dp"
+            app:indicatorTrackGapSize="0dp" />
     </LinearLayout>
 
     <!-- 页面切换：全部纵览 + 各页标签 (由 MainActivity 按 pageItems 动态生成) -->
@@ -166,14 +169,14 @@
         android:clipToPadding="false"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="8dp"
+        android:paddingTop="4dp"
         android:scrollbars="none">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chip_group_pages"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:chipSpacingHorizontal="8dp"
+            app:chipSpacingHorizontal="6dp"
             app:selectionRequired="true"
             app:singleLine="true"
             app:singleSelection="true" />
@@ -187,13 +190,14 @@
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
         android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
         app:checkedButton="@id/tab_image"
         app:selectionRequired="true"
         app:singleSelection="true">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/tab_image"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/Widget.CheckMarkScanner.Button.Segment"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -201,7 +205,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/tab_records"
-            style="@style/Widget.Material3.Button.OutlinedButton"
+            style="@style/Widget.CheckMarkScanner.Button.Segment"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -232,28 +236,27 @@
                 <com.google.android.material.chip.ChipGroup
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:chipSpacingHorizontal="8dp"
+                    app:chipSpacingHorizontal="6dp"
                     app:singleLine="true">
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_sensitivity"
-                        style="@style/Widget.Material3.Chip.Assist"
+                        style="@style/Widget.CheckMarkScanner.Chip.Action"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="灵敏度：自适应"
-                        app:chipIcon="@drawable/ic_tune"
-                        app:chipIconTint="@color/primary" />
+                        app:chipIcon="@drawable/ic_tune" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_badge"
-                        style="@style/Widget.Material3.Chip.Filter"
+                        style="@style/Widget.CheckMarkScanner.Chip.Toggle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="显示单元格坐标" />
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chip_grid"
-                        style="@style/Widget.Material3.Chip.Filter"
+                        style="@style/Widget.CheckMarkScanner.Chip.Toggle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="辅助网格" />
@@ -264,9 +267,11 @@
                 android:id="@+id/tv_preview_tip"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="6dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="8dp"
+                android:drawablePadding="6dp"
+                android:fontFamily="sans-serif-condensed"
                 android:text="点击任意图片进入单页，可逐格补勾 / 取消"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
@@ -317,16 +322,12 @@
             android:visibility="gone">
 
             <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
+                style="@style/Widget.CheckMarkScanner.TextInput.Search"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="12dp"
-                android:layout_marginBottom="4dp"
-                app:boxCornerRadiusBottomEnd="24dp"
-                app:boxCornerRadiusBottomStart="24dp"
-                app:boxCornerRadiusTopEnd="24dp"
-                app:boxCornerRadiusTopStart="24dp"
+                android:layout_marginBottom="6dp"
                 app:endIconMode="clear_text"
                 app:hintEnabled="false"
                 app:startIconDrawable="@drawable/ic_search">
@@ -351,7 +352,7 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- 底部操作栏：拍照 / 相册多选 / 导出 Excel -->
+    <!-- 底部操作栏：拍照 / 相册多选 / 导出 Excel (粗框硬投影按钮，导出为黄色主按钮) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -359,18 +360,18 @@
         android:orientation="horizontal"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp">
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_camera"
-            style="@style/Widget.Material3.Button.TonalButton"
+            style="@style/Widget.CheckMarkScanner.Button.Hard"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="0.85"
             android:maxLines="1"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
             android:text="拍照"
             app:icon="@drawable/ic_camera"
             app:iconGravity="textStart"
@@ -379,14 +380,14 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_gallery"
-            style="@style/Widget.Material3.Button.TonalButton"
+            style="@style/Widget.CheckMarkScanner.Button.Hard"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:maxLines="1"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
             android:text="相册多选"
             app:icon="@drawable/ic_photo_library"
             app:iconGravity="textStart"
@@ -395,13 +396,14 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_export"
+            style="@style/Widget.CheckMarkScanner.Button.Hard.Primary"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1.15"
             android:maxLines="1"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
             android:text="导出 Excel"
             app:icon="@drawable/ic_ios_share"
             app:iconGravity="textStart"

@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 内容收在中心 66dp 安全区内，避免被圆形遮罩裁切 -->
+    <!-- 黄色方块的硬投影 -->
+    <path
+        android:fillColor="#5A5850"
+        android:pathData="M38,38h36v36h-36z"/>
+    <!-- 警示黄方块 -->
+    <path
+        android:fillColor="#FFD60A"
+        android:pathData="M33,33h36v36h-36z"/>
+    <!-- 黑色对勾 -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M40.1,51L47.1,58.1L61.3,43.9L65.1,47.8L47.1,65.8L36.2,54.9Z"/>
+</vector>

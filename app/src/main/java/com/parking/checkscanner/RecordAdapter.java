@@ -1,6 +1,6 @@
 package com.parking.checkscanner;
 
-import android.graphics.Color;
+import android.content.Context;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,11 +8,15 @@ import android.view.ViewGroup;
 import android.widget.GridLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
 public class RecordAdapter extends RecyclerView.Adapter<RecordAdapter.ViewHolder> {
+
+    // 班次格与摘要使用窄体字，与统计数字保持一致
+    private static final Typeface CONDENSED = Typeface.create("sans-serif-condensed", Typeface.NORMAL);
 
     public interface OnItemClickListener {
         void onItemClick(ParkingRecord record, int position);
@@ -97,13 +101,14 @@ public class RecordAdapter extends RecyclerView.Adapter<RecordAdapter.ViewHolder
             tvPlate.setText(record.getPlateNumber());
             tvExcelRow.setText("Excel 第" + record.getExcelRow() + "行");
 
+            Context context = itemView.getContext();
             if (record.hasAnyChecked()) {
                 tvSummary.setText("已打钩: " + record.getCheckedSummary());
-                tvSummary.setTextColor(Color.parseColor("#1B5E20"));
+                tvSummary.setTextColor(ContextCompat.getColor(context, R.color.text_main));
                 tvSummary.setTypeface(null, Typeface.BOLD);
             } else {
                 tvSummary.setText("未打钩");
-                tvSummary.setTextColor(Color.parseColor("#9E9E9E"));
+                tvSummary.setTextColor(ContextCompat.getColor(context, R.color.text_hint));
                 tvSummary.setTypeface(null, Typeface.NORMAL);
             }
 
@@ -122,16 +127,16 @@ public class RecordAdapter extends RecyclerView.Adapter<RecordAdapter.ViewHolder
                 if (isChecked) {
                     chip.setText(dayShort + sub + "√\n" + cell);
                     chip.setBackgroundResource(R.drawable.bg_chip_checked);
-                    chip.setTextColor(Color.WHITE);
-                    chip.setTypeface(null, Typeface.BOLD);
+                    chip.setTextColor(ContextCompat.getColor(context, R.color.on_hazard));
+                    chip.setTypeface(CONDENSED, Typeface.BOLD);
                 } else {
                     chip.setText(dayShort + sub + "\n" + cell);
                     chip.setBackgroundResource(R.drawable.bg_chip_normal);
-                    chip.setTextColor(Color.parseColor("#616161"));
-                    chip.setTypeface(null, Typeface.NORMAL);
+                    chip.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
+                    chip.setTypeface(CONDENSED, Typeface.NORMAL);
                 }
 
-                chip.setTextSize(9f);
+                chip.setTextSize(10f);
                 chip.setGravity(android.view.Gravity.CENTER);
                 chip.setPadding(4, 6, 4, 6);
 

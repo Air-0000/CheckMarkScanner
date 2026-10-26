@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 静态信息块 (统计数字)：描边 + 右下硬投影 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:left="@dimen/hard_shadow" android:top="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/shadow_hard" />
+        </shape>
+    </item>
+    <item android:bottom="@dimen/hard_shadow" android:right="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/bg_card" />
+            <stroke android:width="@dimen/stroke_regular" android:color="@color/line" />
+        </shape>
+    </item>
+</layer-list>

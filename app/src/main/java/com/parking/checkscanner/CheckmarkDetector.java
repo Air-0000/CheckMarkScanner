@@ -3,8 +3,10 @@ package com.parking.checkscanner;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -991,24 +993,32 @@ public class CheckmarkDetector {
         Bitmap out = baseBitmap.copy(Bitmap.Config.ARGB_8888, true);
         Canvas canvas = new Canvas(out);
 
+        // 黄黑警示风：黑色外描边 + 警示黄内框，白纸和深色笔迹上都清晰可辨
+        float boxStroke = Math.max(1.8f, 2.0f * grid.scaleX);
+        Paint boxOutlinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        boxOutlinePaint.setStyle(Paint.Style.STROKE);
+        boxOutlinePaint.setColor(Color.parseColor("#111111"));
+        boxOutlinePaint.setStrokeWidth(boxStroke + 2.0f * Math.max(1f, grid.scaleX));
+
         Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         boxPaint.setStyle(Paint.Style.STROKE);
-        boxPaint.setColor(Color.parseColor("#00E676")); // 高亮鲜明亮绿
-        boxPaint.setStrokeWidth(Math.max(1.8f, 2.0f * grid.scaleX));
+        boxPaint.setColor(Color.parseColor("#FFD60A")); // 警示黄
+        boxPaint.setStrokeWidth(boxStroke);
 
         Paint textBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         textBgPaint.setStyle(Paint.Style.FILL);
-        textBgPaint.setColor(Color.parseColor("#C81B5E20")); // 78% 半透明护眼深绿，保护下层笔锋清晰可见
+        textBgPaint.setColor(Color.parseColor("#D9111111")); // 85% 半透明黑底，保护下层笔锋清晰可见
 
         Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        textPaint.setColor(Color.WHITE);
+        textPaint.setColor(Color.parseColor("#FFD60A"));
         textPaint.setTextSize(Math.max(9.5f, 10.5f * grid.scaleX));
-        textPaint.setFakeBoldText(true);
+        textPaint.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
 
         Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         gridPaint.setStyle(Paint.Style.STROKE);
-        gridPaint.setColor(Color.parseColor("#60FFD600")); // 半透明黄色辅助网格
+        gridPaint.setColor(Color.parseColor("#99F0A800")); // 半透明琥珀色虚线辅助网格，与实线框区分
         gridPaint.setStrokeWidth(1.0f);
+        gridPaint.setPathEffect(new DashPathEffect(new float[] {4f, 3f}, 0f));
 
         int maxRow = (records != null) ? records.size() : 0;
         if (grid.isDynamic && grid.hLines.size() >= 2) {
@@ -1027,7 +1037,8 @@ public class CheckmarkDetector {
                 }
 
                 if (record.isShiftChecked(c)) {
-                    canvas.drawRoundRect(cellRect, 2, 2, boxPaint);
+                    canvas.drawRect(cellRect, boxOutlinePaint);
+                    canvas.drawRect(cellRect, boxPaint);
                     if (showBadge) {
                         String badge = record.getExcelCell(c);
                         float textW = textPaint.measureText(badge);
@@ -1039,7 +1050,7 @@ public class CheckmarkDetector {
                         RectF bg = new RectF(cellRect.left + 1, cellRect.top + 1, 
                                              cellRect.left + 1 + pillW, 
                                              cellRect.top + 1 + pillH);
-                        canvas.drawRoundRect(bg, 2, 2, textBgPaint);
+                        canvas.drawRect(bg, textBgPaint);
                         canvas.drawText(badge, cellRect.left + 2, 
                                         cellRect.top + textPaint.getTextSize() + 1, textPaint);
                     }

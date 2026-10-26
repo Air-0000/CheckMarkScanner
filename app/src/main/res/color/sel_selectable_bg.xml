@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 单选控件底色 (页面标签 / 视图切换)：选中取 selected_bg -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/disabled_bg" android:state_enabled="false" />
+    <item android:color="@color/selected_bg" android:state_checked="true" />
+    <item android:color="@color/bg_card" />
+</selector>

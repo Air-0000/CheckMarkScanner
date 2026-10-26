@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 次要标签 (Excel 行号 / 空闲状态)：透明底 + 细描边 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <stroke android:width="@dimen/stroke_thin" android:color="@color/line" />
+</shape>
