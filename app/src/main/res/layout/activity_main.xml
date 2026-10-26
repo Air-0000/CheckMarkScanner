@@ -161,7 +161,7 @@
             app:indicatorTrackGapSize="0dp" />
     </LinearLayout>
 
-    <!-- 页面切换：全部纵览 + 各页标签 (由 MainActivity 按 pageItems 动态生成) -->
+    <!-- 页面切换：全部 + 已载入的各页标签，可横向滑动 (由 MainActivity 按 pageItems 动态生成) -->
     <HorizontalScrollView
         android:id="@+id/scroll_page_chips"
         android:layout_width="match_parent"
@@ -272,7 +272,7 @@
                 android:paddingBottom="8dp"
                 android:drawablePadding="6dp"
                 android:fontFamily="sans-serif-condensed"
-                android:text="点击任意图片进入单页，可逐格补勾 / 取消"
+                android:text="还没有图片：点底部「拍照」或「相册多选」导入表格照片"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
@@ -303,12 +303,19 @@
                         android:scaleType="fitCenter"
                         android:visibility="gone" />
 
-                    <!-- 全部图片纵览模式：每页一张卡片 (item_page_card，动态生成) -->
-                    <LinearLayout
-                        android:id="@+id/ll_all_images_cards"
+                    <!-- 「全部」或本页还没有图片时的占位提示；各页图片通过上方页签逐页查看 -->
+                    <TextView
+                        android:id="@+id/tv_preview_empty"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical" />
+                        android:layout_height="160dp"
+                        android:background="@drawable/bg_placeholder"
+                        android:gravity="center"
+                        android:lineSpacingExtra="4dp"
+                        android:padding="12dp"
+                        android:text="暂无图片 · 拍照或从相册导入"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
             </ScrollView>
         </LinearLayout>

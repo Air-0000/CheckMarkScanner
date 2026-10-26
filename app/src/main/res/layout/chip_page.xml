@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 页面切换标签 (单选)，由 MainActivity.buildPageViews() 动态添加到 chip_group_pages -->
+<!-- 页面切换标签 (单选)，由 MainActivity.buildPageViews() 动态添加到 chip_group_pages，显隐由 updatePageChips() 控制 -->
 <com.google.android.material.chip.Chip xmlns:android="http://schemas.android.com/apk/res/android"
     style="@style/Widget.CheckMarkScanner.Chip.Page"
     android:layout_width="wrap_content"
