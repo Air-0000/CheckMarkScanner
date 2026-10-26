@@ -1,8 +1,8 @@
 {
-  "versionCode": 35,
-  "versionName": "2.6.7",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.7.apk",
-  "apkSize": "25.7MB",
-  "updateLog": "1. 「全部」下不再一页页往下列出图片，各页图片通过顶部页签左右滑动切换查看\n2. 顶部页签只显示已导入的页，没有图片时不再挂满 20 个空页签；末尾的「＋ 新页」用于逐张拍照往后加页\n3. 导入完成后直接跳到导入的第一页",
+  "versionCode": 36,
+  "versionName": "2.6.8",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.8.apk",
+  "apkSize": "25.6MB",
+  "updateLog": "1. 界面精简为三步：导入照片 → 对照照片点格子核对 → 导出 Excel，照片显示区域更大\n2. 去掉单元格坐标、辅助网格、灵敏度、统计方块、核对名单、复制文字报表和训练集等用不到的功能\n3. 页签下方显示本页打钩数；没认出序号的页用黄色标签提醒重拍",
   "forceUpdate": false
 }
