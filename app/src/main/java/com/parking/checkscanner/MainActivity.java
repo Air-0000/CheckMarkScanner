@@ -47,7 +47,10 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -56,10 +59,10 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
 
     public static class PageItem {
-        public int pageId; // 1, 2, 3, 4, 5
+        public int pageId; // 1 ~ MAX_PAGES
         public String title;
         public String tabName;
-        public String assetFileName;
+        public String assetFileName; // 示例图文件名，空白页为 null
         public int startRowIndex;
         public int rowCount;
         public List<ParkingRecord> records;
@@ -68,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
         public CheckmarkDetector.DetectionResult detectionResult;
         public int detectedMarksCount = 0;
         public int ocrCount = 0;
+        public boolean fromUser = false; // 当前图片为用户拍照 / 相册导入 (示例图为 false)
+        public int ocrStartIdx = -1; // OCR 投票得出的本页起始序号，-1 表示未识别出
 
         public PageItem(int pageId, String title, String tabName, String assetFileName, int startRowIndex, int rowCount) {
             this.pageId = pageId;
@@ -89,16 +94,33 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 5个实拍与示例图页面数据 (页面标签与纵览卡片均按此数组动态生成)
-    private PageItem[] pageItems = new PageItem[] {
-        new PageItem(1, "实拍图 1 · 第1页 (序号 1~39)", "实拍P1 (1~39)", "sample_p1.jpg", 1, 39),
-        new PageItem(2, "实拍图 2 · 第2页 (序号 40~77)", "实拍P2 (40~77)", "sample_p2.jpg", 40, 38),
-        new PageItem(3, "实拍图 3 · 第3页 (序号 78~115)", "实拍P3 (78~115)", "sample_p3.jpg", 78, 38),
-        new PageItem(4, "实拍图 4 · 备选第1页 (序号 1~39)", "实拍P4 (备选)", "sample_p4.jpg", 1, 39),
-        new PageItem(5, "原始示例表 (序号 1~39)", "原始示例表", "sample_parking_table.jpg", 1, 39)
-    };
+    // 页面总数，即相册一次最多可导入的图片张数 (从当前页起依次填入后续页面)
+    private static final int MAX_PAGES = 20;
 
-    // 0 表示全部图片纵览模式，1~5 表示聚焦对应单图
+    // 第 1~3 页对应名单序号 1~115，导出时始终参与；第 4 页起只有导入过图片且识别出序号的页才合并导出
+    private static final int ROSTER_PAGES = 3;
+
+    // 前 5 页为实拍与示例图，其余为空白页 (页面标签与纵览卡片均按此数组动态生成)
+    private PageItem[] pageItems = buildPageItems();
+
+    private static PageItem[] buildPageItems() {
+        PageItem[] items = Arrays.copyOf(new PageItem[] {
+            new PageItem(1, "实拍图 1 · 第1页 (序号 1~39)", "实拍P1 (1~39)", "sample_p1.jpg", 1, 39),
+            new PageItem(2, "实拍图 2 · 第2页 (序号 40~77)", "实拍P2 (40~77)", "sample_p2.jpg", 40, 38),
+            new PageItem(3, "实拍图 3 · 第3页 (序号 78~115)", "实拍P3 (78~115)", "sample_p3.jpg", 78, 38),
+            new PageItem(4, "实拍图 4 · 备选第1页 (序号 1~39)", "实拍P4 (备选)", "sample_p4.jpg", 1, 39),
+            new PageItem(5, "原始示例表 (序号 1~39)", "原始示例表", "sample_parking_table.jpg", 1, 39)
+        }, MAX_PAGES);
+        for (int i = 0; i < MAX_PAGES; i++) {
+            if (items[i] != null) continue;
+            int pageId = i + 1;
+            // 空白页先按 39 行 (序号 1~39) 建网格，导入后以 OCR 识别出的序号为准
+            items[i] = new PageItem(pageId, "第" + pageId + "页 (序号以识别为准)", "第" + pageId + "页", null, 1, 39);
+        }
+        return items;
+    }
+
+    // 0 表示全部图片纵览模式，1~MAX_PAGES 表示聚焦对应单图
     private int currentViewMode = 0;
 
     private RecordAdapter adapter;
@@ -237,7 +259,8 @@ public class MainActivity extends AppCompatActivity {
             final int targetMode = mode;
             Chip chip = (Chip) inflater.inflate(R.layout.chip_page, chipGroupPages, false);
             chip.setId(View.generateViewId());
-            chip.setText(mode == 0 ? "全部 (" + pageItems.length + "张)" : pageItems[mode - 1].tabName);
+            // 已载入张数见统计栏，这里不写总页数，免得误以为已有 20 张图
+            chip.setText(mode == 0 ? "全部" : pageItems[mode - 1].tabName);
             chip.setOnClickListener(v -> switchViewMode(targetMode));
             chipGroupPages.addView(chip);
             pageChips[mode] = chip;
@@ -466,6 +489,7 @@ public class MainActivity extends AppCompatActivity {
     private void analyzePage(PageItem item, Bitmap bitmap) {
         item.originalBitmap = bitmap;
         item.annotatedBitmap = null;
+        item.ocrStartIdx = -1;
 
         // 1. 物理表格线与打钩检测 (基于拓扑和污渍过滤算法)
         CheckmarkDetector.DetectionResult res = CheckmarkDetector.detect(
@@ -489,6 +513,7 @@ public class MainActivity extends AppCompatActivity {
                 res.records = ocrRes.records;
                 item.records = ocrRes.records;
                 item.ocrCount = ocrRes.recognizedItemCount;
+                item.ocrStartIdx = ocrRes.detectedStartIdx;
             }
         } catch (Exception e) {
             Log.e(TAG, "OCR 处理异常: " + e.getMessage(), e);
@@ -504,21 +529,26 @@ public class MainActivity extends AppCompatActivity {
         setBusy(true, "正在分析全部实拍与示例图...");
 
         executor.execute(() -> {
+            int sampleCount = 0;
             for (PageItem item : pageItems) {
+                if (item.assetFileName == null) continue;
+                sampleCount++;
                 try (InputStream is = getAssets().open(item.assetFileName)) {
                     Bitmap bitmap = BitmapFactory.decodeStream(is);
+                    item.fromUser = false;
                     analyzePage(item, bitmap);
                 } catch (Exception e) {
                     Log.e(TAG, "加载 " + item.assetFileName + " 失败: " + e.getMessage(), e);
                 }
             }
 
+            final int loadedSamples = sampleCount;
             mainHandler.post(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
-                setBusy(false, pageItems.length + " 张示例图已就绪 (仅框)");
-                Toast.makeText(MainActivity.this, "已载入全部 " + pageItems.length + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
+                setBusy(false, loadedSamples + " 张示例图已就绪 (仅框)");
+                Toast.makeText(MainActivity.this, "已载入全部 " + loadedSamples + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -717,6 +747,7 @@ public class MainActivity extends AppCompatActivity {
 
         executor.execute(() -> {
             List<String> doneNames = new ArrayList<>();
+            List<String> unmergedNames = new ArrayList<>();
             int failed = 0;
 
             for (int i = 0; i < total; i++) {
@@ -731,10 +762,12 @@ public class MainActivity extends AppCompatActivity {
                         failed++;
                         continue;
                     }
+                    target.fromUser = true;
                     analyzePage(target, bitmap);
                     // 提示里只用短名 (去掉括号里的序号范围)，避免 Toast 超过两行被截断
                     String shortName = target.tabName.replaceAll("\\s*\\(.*\\)", "");
                     doneNames.add(shortName + " " + target.detectedMarksCount + "处");
+                    if (!isExportPage(startIdx + i)) unmergedNames.add(shortName);
                 } catch (Exception e) {
                     failed++;
                     Log.e(TAG, "处理图片失败: " + e.getMessage(), e);
@@ -758,11 +791,16 @@ public class MainActivity extends AppCompatActivity {
                 }
                 setBusy(false, doneNames.isEmpty() ? "图片读取失败" : "已导入 " + doneNames.size() + " 张图片");
 
-                if (failedCount == 0 && skipped == 0) {
+                if (failedCount == 0 && skipped == 0 && unmergedNames.isEmpty()) {
                     Toast.makeText(MainActivity.this, msg.toString(), Toast.LENGTH_LONG).show();
                     return;
                 }
-                // 有读取失败或超出页数被忽略的图片时用弹窗完整说明，避免 Toast 截断漏看
+                // 有读取失败、超出页数被忽略或无法合并导出的图片时用弹窗完整说明，避免 Toast 截断漏看
+                if (!unmergedNames.isEmpty()) {
+                    if (msg.length() > 0) msg.append("\n\n");
+                    msg.append(String.join("、", unmergedNames))
+                       .append(" 未识别出序号，导出时不会合并。请拍清左侧序号列后重新导入。");
+                }
                 if (failedCount > 0) {
                     if (msg.length() > 0) msg.append("\n\n");
                     msg.append(failedCount).append(" 张图片读取失败，请重试");
@@ -835,6 +873,40 @@ public class MainActivity extends AppCompatActivity {
         return combined;
     }
 
+    /**
+     * 第 1~3 页始终参与导出 (与原先一致)；第 4 页起只合并用户导入且 OCR 识别出序号的页面，
+     * 避免示例图或序号未知的照片按默认序号 1~39 错填到别人名下。
+     */
+    private boolean isExportPage(int pageIdx) {
+        PageItem item = pageItems[pageIdx];
+        return pageIdx < ROSTER_PAGES || (item.fromUser && item.ocrStartIdx > 0);
+    }
+
+    /**
+     * 导出用名单：把参与导出的页面按序号合并为一份 (同一人出现在多张图上时打钩取并集，姓名车牌取靠前页面)。
+     * 返回的是副本，修改不会影响各页记录。
+     */
+    private List<ParkingRecord> getExportRecords() {
+        Map<Integer, ParkingRecord> merged = new TreeMap<>();
+        for (int i = 0; i < pageItems.length; i++) {
+            if (!isExportPage(i)) continue;
+            for (ParkingRecord r : pageItems[i].records) {
+                ParkingRecord m = merged.get(r.getIndex());
+                if (m == null) {
+                    m = new ParkingRecord(r.getIndex(), r.getName(), r.getPlateNumber());
+                    merged.put(r.getIndex(), m);
+                }
+                for (int c = 0; c < 14; c++) {
+                    if (r.isShiftChecked(c)) {
+                        m.setShiftChecked(c, true);
+                        m.setConfidence(c, Math.max(m.getConfidence(c), r.getConfidence(c)));
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(merged.values());
+    }
+
     private void updateStatsDisplay() {
         int loadedPages = 0;
         for (PageItem item : pageItems) {
@@ -846,14 +918,15 @@ public class MainActivity extends AppCompatActivity {
             int totalAllMarks = 0;
             for (PageItem item : pageItems) totalAllMarks += item.detectedMarksCount;
 
-            List<ParkingRecord> fullRoster = getCombinedRecords(1, 2, 3);
+            // 出勤人数与导出口径一致：各页按序号合并后统计
+            List<ParkingRecord> fullRoster = getExportRecords();
             int attended = 0;
             for (ParkingRecord r : fullRoster) {
                 if (r.hasAnyChecked()) attended++;
             }
             tvStatMarks.setText(totalAllMarks + " 处");
             tvStatPersons.setText(attended + " / " + fullRoster.size() + " 人");
-            tvStatusBadge.setText("全部图片 (" + pageItems.length + "张纵览)");
+            tvStatusBadge.setText("全部图片 (" + loadedPages + "张纵览)");
         } else {
             PageItem item = pageItems[currentViewMode - 1];
             int attended = 0;
@@ -873,7 +946,7 @@ public class MainActivity extends AppCompatActivity {
         sb.append("--------------------------------------------------\n\n");
 
         List<ParkingRecord> targetRecords = (currentViewMode == 0)
-            ? getCombinedRecords(1, 2, 3)
+            ? getExportRecords()
             : pageItems[currentViewMode - 1].records;
 
         int totalChecks = 0;
@@ -907,9 +980,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         int allPagesChecks = 0;
-        for (PageItem item : pageItems) allPagesChecks += item.detectedMarksCount;
+        int loadedPages = 0;
+        for (PageItem item : pageItems) {
+            allPagesChecks += item.detectedMarksCount;
+            if (item.originalBitmap != null) loadedPages++;
+        }
 
-        sb.append(String.format("\n📌 当前视图打钩人次: %d 次  |  %d张图全部打钩总计: %d 次\n", totalChecks, pageItems.length, allPagesChecks));
+        sb.append(String.format("\n📌 当前视图打钩人次: %d 次  |  %d张图全部打钩总计: %d 次\n", totalChecks, loadedPages, allPagesChecks));
         summaryText = sb.toString();
     }
 
@@ -917,18 +994,29 @@ public class MainActivity extends AppCompatActivity {
      * 导出入口：底部弹层汇总全部导出方式 (停车情况表副本填1 / 导入表格填1 / 复制报表)
      */
     private void showExportSheet() {
-        List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
+        List<ParkingRecord> allRecords = getExportRecords();
         int attended = 0;
         int totalMarks = 0;
         for (ParkingRecord r : allRecords) {
             if (r.hasAnyChecked()) attended++;
             totalMarks += r.getCheckedCount();
         }
+        int mergedPages = 0;
+        int unmergedPages = 0;
+        for (int i = 0; i < pageItems.length; i++) {
+            if (isExportPage(i)) {
+                mergedPages++;
+            } else if (pageItems[i].fromUser) {
+                unmergedPages++;
+            }
+        }
 
         BottomSheetDialog sheet = new BottomSheetDialog(this);
         View content = getLayoutInflater().inflate(R.layout.bottom_sheet_export, null);
         ((TextView) content.findViewById(R.id.tv_export_summary)).setText(
-            "第1~3页共识别 " + totalMarks + " 处打钩、" + attended + " 人出勤，导出时打钩统一填为数字 1");
+            mergedPages + " 页按序号合并后共 " + totalMarks + " 处打钩、" + attended + " 人出勤"
+            + (unmergedPages > 0 ? "（另有 " + unmergedPages + " 页未识别出序号，不参与导出）" : "")
+            + "，导出时打钩统一填为数字 1");
 
         LinearLayout options = content.findViewById(R.id.ll_export_options);
         addExportOption(sheet, options, R.drawable.ic_description, "填入停车情况表（推荐）",
@@ -980,8 +1068,9 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT).show();
         setBusy(true, "正在执行按表填1并导出...");
 
+        // 在主线程取好合并后的副本再交给后台，避免与界面上的补勾 / 取消同时读写各页记录
+        final List<ParkingRecord> allRecords = getExportRecords();
         executor.execute(() -> {
-            List<ParkingRecord> allRecords = getCombinedRecords(1, 2, 3);
             ExcelTemplateFiller.FillResult result;
             if (userExcelUri == null) {
                 result = ExcelTemplateFiller.fillBuiltInTemplate(this, allRecords);
