@@ -71,13 +71,36 @@ public class MainActivity extends AppCompatActivity {
         public boolean fromUser = false; // 已有用户拍照 / 相册导入的图片
         public int ocrStartIdx = -1; // OCR 投票得出的本页起始序号，-1 表示未识别出
 
-        public PageItem(int pageId, String title, String tabName, int startRowIndex, int rowCount) {
+        public PageItem(int pageId, int startRowIndex, int rowCount) {
             this.pageId = pageId;
-            this.title = title;
-            this.tabName = tabName;
             this.startRowIndex = startRowIndex;
             this.rowCount = rowCount;
             this.records = createDefaultRecords(startRowIndex, rowCount);
+            refreshLabels();
+        }
+
+        /**
+         * 按本页记录的实际序号刷新标题与标签：名单页 (第 1~3 页) 或 OCR 识别出序号的页显示序号范围，
+         * 其余页导入后未识别出序号时标注「序号未识别」(这类页导出时不合并)
+         */
+        void refreshLabels() {
+            String page = "第" + pageId + "页";
+            if (!records.isEmpty() && (pageId <= ROSTER_PAGES || ocrStartIdx > 0)) {
+                int first = Integer.MAX_VALUE;
+                int last = Integer.MIN_VALUE;
+                for (ParkingRecord r : records) {
+                    first = Math.min(first, r.getIndex());
+                    last = Math.max(last, r.getIndex());
+                }
+                title = page + " (序号 " + first + "~" + last + ")";
+                tabName = page + " (" + first + "~" + last + ")";
+            } else if (originalBitmap != null) {
+                title = page + " (序号未识别)";
+                tabName = page + " (未识别)";
+            } else {
+                title = page + " (序号以识别为准)";
+                tabName = page;
+            }
         }
 
         private static List<ParkingRecord> createDefaultRecords(int start, int count) {
@@ -96,20 +119,20 @@ public class MainActivity extends AppCompatActivity {
     // 第 1~3 页对应名单序号 1~115，导出时始终参与；第 4 页起只有导入过图片且识别出序号的页才合并导出
     private static final int ROSTER_PAGES = 3;
 
-    // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签与纵览卡片均按此数组动态生成)
+    // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签与纵览卡片均按此数组动态生成，
+    // 标题和标签随识别出的序号范围更新)
     private PageItem[] pageItems = buildPageItems();
 
     private static PageItem[] buildPageItems() {
         PageItem[] items = Arrays.copyOf(new PageItem[] {
-            new PageItem(1, "第1页 (序号 1~39)", "第1页 (1~39)", 1, 39),
-            new PageItem(2, "第2页 (序号 40~77)", "第2页 (40~77)", 40, 38),
-            new PageItem(3, "第3页 (序号 78~115)", "第3页 (78~115)", 78, 38)
+            new PageItem(1, 1, 39),
+            new PageItem(2, 40, 38),
+            new PageItem(3, 78, 38)
         }, MAX_PAGES);
         for (int i = 0; i < MAX_PAGES; i++) {
             if (items[i] != null) continue;
-            int pageId = i + 1;
             // 空白页先按 39 行 (序号 1~39) 建网格，导入后以 OCR 识别出的序号为准
-            items[i] = new PageItem(pageId, "第" + pageId + "页 (序号以识别为准)", "第" + pageId + "页", 1, 39);
+            items[i] = new PageItem(i + 1, 1, 39);
         }
         return items;
     }
@@ -151,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView[] cardImages;
     private TextView[] cardPlaceholders;
     private TextView[] cardMarks;
+    private TextView[] cardTitles;
 
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<Uri> cameraLauncher;
@@ -245,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
         cardImages = new ImageView[pageItems.length];
         cardPlaceholders = new TextView[pageItems.length];
         cardMarks = new TextView[pageItems.length];
+        cardTitles = new TextView[pageItems.length];
 
         for (int mode = 0; mode <= pageItems.length; mode++) {
             final int targetMode = mode;
@@ -260,7 +285,8 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < pageItems.length; i++) {
             final int targetMode = i + 1;
             View card = inflater.inflate(R.layout.item_page_card, llAllImagesCards, false);
-            ((TextView) card.findViewById(R.id.tv_card_title)).setText(pageItems[i].title);
+            cardTitles[i] = card.findViewById(R.id.tv_card_title);
+            cardTitles[i].setText(pageItems[i].title);
             cardImages[i] = card.findViewById(R.id.iv_card);
             cardPlaceholders[i] = card.findViewById(R.id.tv_card_placeholder);
             cardMarks[i] = card.findViewById(R.id.tv_card_marks);
@@ -495,7 +521,10 @@ public class MainActivity extends AppCompatActivity {
             bitmap, item.records, currentSensitivity, 0, 0, showHelperGrid, showBadge
         );
         item.detectionResult = res;
-        if (res == null) return;
+        if (res == null) {
+            item.refreshLabels();
+            return;
+        }
 
         item.records = res.records;
         item.detectedMarksCount = res.totalMarkCount;
@@ -522,6 +551,9 @@ public class MainActivity extends AppCompatActivity {
         item.annotatedBitmap = CheckmarkDetector.renderOverlay(
             bitmap, item.records, res.grid, showHelperGrid, showBadge, 0, 0
         );
+
+        // 4. 标题 / 标签改为识别出的序号范围
+        item.refreshLabels();
     }
 
     /**
@@ -592,6 +624,8 @@ public class MainActivity extends AppCompatActivity {
     private void updateAllCardsUI() {
         for (int i = 0; i < pageItems.length; i++) {
             PageItem item = pageItems[i];
+            cardTitles[i].setText(item.title);
+            pageChips[i + 1].setText(item.tabName);
             Bitmap shown = (item.annotatedBitmap != null) ? item.annotatedBitmap : item.originalBitmap;
             if (shown != null) {
                 cardImages[i].setImageBitmap(shown);
