@@ -6,7 +6,7 @@
     android:orientation="vertical"
     android:background="@color/bg_page">
 
-    <!-- 顶部标题栏：黑底黄字；训练集 / 重载示例 / 检查更新 收进右上角菜单 -->
+    <!-- 顶部标题栏：黑底黄字；训练集 / 检查更新 / 更新服务器设置 收进右上角菜单 -->
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
