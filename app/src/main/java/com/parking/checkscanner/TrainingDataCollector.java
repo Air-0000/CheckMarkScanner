@@ -463,14 +463,14 @@ public class TrainingDataCollector {
     public void exportDatasetZip(Activity activity) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
 
-        Toast.makeText(activity, "正在打包训练数据集，请稍候...", Toast.LENGTH_SHORT).show();
+        StyledToast.show(activity, "正在打包训练数据集，请稍候...", Toast.LENGTH_SHORT);
 
         executor.execute(() -> {
             try {
                 File dir = getDatasetDir(activity);
                 File manifest = getManifestFile(activity);
                 if (!manifest.exists() || manifest.length() == 0) {
-                    mainHandler.post(() -> Toast.makeText(activity, "暂无训练样本数据，请先拍照或进行日常表格核对", Toast.LENGTH_SHORT).show());
+                    mainHandler.post(() -> StyledToast.show(activity, "暂无训练样本数据，请先拍照或进行日常表格核对", Toast.LENGTH_SHORT));
                     return;
                 }
 
@@ -523,7 +523,7 @@ public class TrainingDataCollector {
 
             } catch (Exception e) {
                 Log.e(TAG, "打包数据集失败: " + e.getMessage(), e);
-                mainHandler.post(() -> Toast.makeText(activity, "打包数据集失败: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                mainHandler.post(() -> StyledToast.show(activity, "打包数据集失败: " + e.getMessage(), Toast.LENGTH_LONG));
             }
         });
     }

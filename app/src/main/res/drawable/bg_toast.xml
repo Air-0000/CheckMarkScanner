@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 提示条：黑底黄框 + 黄色硬投影，浅色 / 深色模式一致 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:left="@dimen/hard_shadow" android:top="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/hazard" />
+        </shape>
+    </item>
+    <item android:bottom="@dimen/hard_shadow" android:right="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/ink" />
+            <stroke android:width="@dimen/stroke_bold" android:color="@color/hazard" />
+        </shape>
+    </item>
+</layer-list>

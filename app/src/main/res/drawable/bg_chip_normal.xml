@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 人员卡片里的班次格：未打钩 = 下沉底色 + 细灰框 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/unchecked_bg" />
-    <stroke android:width="1dp" android:color="@color/chip_border" />
-    <corners android:radius="4dp" />
+    <solid android:color="@color/bg_sunken" />
+    <stroke android:width="@dimen/stroke_thin" android:color="@color/line_soft" />
 </shape>

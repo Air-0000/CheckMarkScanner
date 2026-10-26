@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
@@ -45,7 +44,6 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import java.io.File;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -62,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
         public int pageId; // 1 ~ MAX_PAGES
         public String title;
         public String tabName;
-        public String assetFileName; // 示例图文件名，空白页为 null
         public int startRowIndex;
         public int rowCount;
         public List<ParkingRecord> records;
@@ -71,17 +68,39 @@ public class MainActivity extends AppCompatActivity {
         public CheckmarkDetector.DetectionResult detectionResult;
         public int detectedMarksCount = 0;
         public int ocrCount = 0;
-        public boolean fromUser = false; // 当前图片为用户拍照 / 相册导入 (示例图为 false)
+        public boolean fromUser = false; // 已有用户拍照 / 相册导入的图片
         public int ocrStartIdx = -1; // OCR 投票得出的本页起始序号，-1 表示未识别出
 
-        public PageItem(int pageId, String title, String tabName, String assetFileName, int startRowIndex, int rowCount) {
+        public PageItem(int pageId, int startRowIndex, int rowCount) {
             this.pageId = pageId;
-            this.title = title;
-            this.tabName = tabName;
-            this.assetFileName = assetFileName;
             this.startRowIndex = startRowIndex;
             this.rowCount = rowCount;
             this.records = createDefaultRecords(startRowIndex, rowCount);
+            refreshLabels();
+        }
+
+        /**
+         * 按本页记录的实际序号刷新标题与标签：名单页 (第 1~3 页) 或 OCR 识别出序号的页显示序号范围，
+         * 其余页导入后未识别出序号时标注「序号未识别」(这类页导出时不合并)
+         */
+        void refreshLabels() {
+            String page = "第" + pageId + "页";
+            if (!records.isEmpty() && (pageId <= ROSTER_PAGES || ocrStartIdx > 0)) {
+                int first = Integer.MAX_VALUE;
+                int last = Integer.MIN_VALUE;
+                for (ParkingRecord r : records) {
+                    first = Math.min(first, r.getIndex());
+                    last = Math.max(last, r.getIndex());
+                }
+                title = page + " (序号 " + first + "~" + last + ")";
+                tabName = page + " (" + first + "~" + last + ")";
+            } else if (originalBitmap != null) {
+                title = page + " (序号未识别)";
+                tabName = page + " (未识别)";
+            } else {
+                title = page + " (序号以识别为准)";
+                tabName = page;
+            }
         }
 
         private static List<ParkingRecord> createDefaultRecords(int start, int count) {
@@ -100,22 +119,20 @@ public class MainActivity extends AppCompatActivity {
     // 第 1~3 页对应名单序号 1~115，导出时始终参与；第 4 页起只有导入过图片且识别出序号的页才合并导出
     private static final int ROSTER_PAGES = 3;
 
-    // 前 5 页为实拍与示例图，其余为空白页 (页面标签与纵览卡片均按此数组动态生成)
+    // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签与纵览卡片均按此数组动态生成，
+    // 标题和标签随识别出的序号范围更新)
     private PageItem[] pageItems = buildPageItems();
 
     private static PageItem[] buildPageItems() {
         PageItem[] items = Arrays.copyOf(new PageItem[] {
-            new PageItem(1, "实拍图 1 · 第1页 (序号 1~39)", "实拍P1 (1~39)", "sample_p1.jpg", 1, 39),
-            new PageItem(2, "实拍图 2 · 第2页 (序号 40~77)", "实拍P2 (40~77)", "sample_p2.jpg", 40, 38),
-            new PageItem(3, "实拍图 3 · 第3页 (序号 78~115)", "实拍P3 (78~115)", "sample_p3.jpg", 78, 38),
-            new PageItem(4, "实拍图 4 · 备选第1页 (序号 1~39)", "实拍P4 (备选)", "sample_p4.jpg", 1, 39),
-            new PageItem(5, "原始示例表 (序号 1~39)", "原始示例表", "sample_parking_table.jpg", 1, 39)
+            new PageItem(1, 1, 39),
+            new PageItem(2, 40, 38),
+            new PageItem(3, 78, 38)
         }, MAX_PAGES);
         for (int i = 0; i < MAX_PAGES; i++) {
             if (items[i] != null) continue;
-            int pageId = i + 1;
             // 空白页先按 39 行 (序号 1~39) 建网格，导入后以 OCR 识别出的序号为准
-            items[i] = new PageItem(pageId, "第" + pageId + "页 (序号以识别为准)", "第" + pageId + "页", null, 1, 39);
+            items[i] = new PageItem(i + 1, 1, 39);
         }
         return items;
     }
@@ -157,6 +174,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageView[] cardImages;
     private TextView[] cardPlaceholders;
     private TextView[] cardMarks;
+    private TextView[] cardTitles;
 
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<Uri> cameraLauncher;
@@ -198,9 +216,6 @@ public class MainActivity extends AppCompatActivity {
         // 载入沉淀的自校准算法阈值与训练集样本数徽标
         CheckmarkDetector.setCalibratedMinContrast(TrainingDataCollector.getCalibratedMinContrast(this));
         updateTrainingDataButtonBadge();
-
-        // 启动时自动载入全部 5 张实拍与示例图
-        loadAllSampleImages();
 
         // 启动后静默检测线上新版本
         mainHandler.postDelayed(() -> {
@@ -254,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
         cardImages = new ImageView[pageItems.length];
         cardPlaceholders = new TextView[pageItems.length];
         cardMarks = new TextView[pageItems.length];
+        cardTitles = new TextView[pageItems.length];
 
         for (int mode = 0; mode <= pageItems.length; mode++) {
             final int targetMode = mode;
@@ -269,7 +285,8 @@ public class MainActivity extends AppCompatActivity {
         for (int i = 0; i < pageItems.length; i++) {
             final int targetMode = i + 1;
             View card = inflater.inflate(R.layout.item_page_card, llAllImagesCards, false);
-            ((TextView) card.findViewById(R.id.tv_card_title)).setText(pageItems[i].title);
+            cardTitles[i] = card.findViewById(R.id.tv_card_title);
+            cardTitles[i].setText(pageItems[i].title);
             cardImages[i] = card.findViewById(R.id.iv_card);
             cardPlaceholders[i] = card.findViewById(R.id.tv_card_placeholder);
             cardMarks[i] = card.findViewById(R.id.tv_card_marks);
@@ -307,7 +324,7 @@ public class MainActivity extends AppCompatActivity {
                 if (isGranted) {
                     startCameraCapture();
                 } else {
-                    Toast.makeText(this, "需要相机权限拍摄纸张表格", Toast.LENGTH_SHORT).show();
+                    StyledToast.show(this, "需要相机权限拍摄纸张表格", Toast.LENGTH_SHORT);
                 }
             }
         );
@@ -394,8 +411,6 @@ public class MainActivity extends AppCompatActivity {
         int id = menuItem.getItemId();
         if (id == R.id.action_training) {
             showTrainingDataDialog();
-        } else if (id == R.id.action_reload) {
-            if (!rejectIfBusy()) loadAllSampleImages();
         } else if (id == R.id.action_check_update) {
             AppUpdateManager.getInstance().checkUpdate(this, true);
         } else if (id == R.id.action_update_url) {
@@ -427,12 +442,20 @@ public class MainActivity extends AppCompatActivity {
         if (statusText != null) {
             tvStatusBadge.setText(statusText);
         }
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, busy ? R.color.primary : R.color.checked_green));
+        applyStatusBadgeStyle(busy);
+    }
+
+    /**
+     * 状态标签：识别中为黄底警示样式，空闲时为描边样式
+     */
+    private void applyStatusBadgeStyle(boolean busy) {
+        tvStatusBadge.setBackgroundResource(busy ? R.drawable.bg_tag_hazard : R.drawable.bg_tag_outline);
+        tvStatusBadge.setTextColor(ContextCompat.getColor(this, busy ? R.color.on_hazard : R.color.text_main));
     }
 
     private boolean rejectIfBusy() {
         if (isBusy) {
-            Toast.makeText(this, "正在识别中，请稍候...", Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "正在识别中，请稍候...", Toast.LENGTH_SHORT);
         }
         return isBusy;
     }
@@ -446,7 +469,9 @@ public class MainActivity extends AppCompatActivity {
             llAllImagesCards.setVisibility(View.VISIBLE);
             ivPreview.setVisibility(View.GONE);
             adapter.setRecords(getCombinedRecords(1, 2, 3));
-            tvPreviewTip.setText("点击任意图片进入单页，可逐格补勾 / 取消");
+            tvPreviewTip.setText(countLoadedPages() > 0
+                ? "点击任意图片进入单页，可逐格补勾 / 取消"
+                : "还没有图片：点底部「拍照」或「相册多选」导入表格照片");
         } else {
             // 单图聚焦模式
             llAllImagesCards.setVisibility(View.GONE);
@@ -463,7 +488,7 @@ public class MainActivity extends AppCompatActivity {
                 ? "点击表格中的格子即可补勾 / 取消，修正会自动累计为训练样本"
                 : "本页暂无图片：拍照或从相册导入后即可识别");
         }
-        tvStatusBadge.setTextColor(ContextCompat.getColor(this, R.color.checked_green));
+        applyStatusBadgeStyle(isBusy);
 
         updateStatsDisplay();
         updateSummaryText();
@@ -496,7 +521,10 @@ public class MainActivity extends AppCompatActivity {
             bitmap, item.records, currentSensitivity, 0, 0, showHelperGrid, showBadge
         );
         item.detectionResult = res;
-        if (res == null) return;
+        if (res == null) {
+            item.refreshLabels();
+            return;
+        }
 
         item.records = res.records;
         item.detectedMarksCount = res.totalMarkCount;
@@ -523,34 +551,9 @@ public class MainActivity extends AppCompatActivity {
         item.annotatedBitmap = CheckmarkDetector.renderOverlay(
             bitmap, item.records, res.grid, showHelperGrid, showBadge, 0, 0
         );
-    }
 
-    private void loadAllSampleImages() {
-        setBusy(true, "正在分析全部实拍与示例图...");
-
-        executor.execute(() -> {
-            int sampleCount = 0;
-            for (PageItem item : pageItems) {
-                if (item.assetFileName == null) continue;
-                sampleCount++;
-                try (InputStream is = getAssets().open(item.assetFileName)) {
-                    Bitmap bitmap = BitmapFactory.decodeStream(is);
-                    item.fromUser = false;
-                    analyzePage(item, bitmap);
-                } catch (Exception e) {
-                    Log.e(TAG, "加载 " + item.assetFileName + " 失败: " + e.getMessage(), e);
-                }
-            }
-
-            final int loadedSamples = sampleCount;
-            mainHandler.post(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                updateAllCardsUI();
-                switchViewMode(currentViewMode);
-                setBusy(false, loadedSamples + " 张示例图已就绪 (仅框)");
-                Toast.makeText(MainActivity.this, "已载入全部 " + loadedSamples + " 张实拍与示例图，每张图仅展示打钩框体！", Toast.LENGTH_SHORT).show();
-            });
-        });
+        // 4. 标题 / 标签改为识别出的序号范围
+        item.refreshLabels();
     }
 
     /**
@@ -576,7 +579,7 @@ public class MainActivity extends AppCompatActivity {
             chipSensitivity.setText("灵敏度：自适应");
             tip = "已切换为【智能自适应模式】：标准均衡推荐";
         }
-        Toast.makeText(this, tip, Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, tip, Toast.LENGTH_SHORT);
         reprocessAllPagesWithSensitivity();
     }
 
@@ -613,7 +616,7 @@ public class MainActivity extends AppCompatActivity {
                 updateAllCardsUI();
                 switchViewMode(currentViewMode);
                 setBusy(false, "已就绪 (" + finalTotal + "处打钩)");
-                Toast.makeText(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT).show();
+                StyledToast.show(MainActivity.this, "识别完成：当前灵敏度下共识别 " + finalTotal + " 处打钩", Toast.LENGTH_SHORT);
             });
         });
     }
@@ -621,6 +624,8 @@ public class MainActivity extends AppCompatActivity {
     private void updateAllCardsUI() {
         for (int i = 0; i < pageItems.length; i++) {
             PageItem item = pageItems[i];
+            cardTitles[i].setText(item.title);
+            pageChips[i + 1].setText(item.tabName);
             Bitmap shown = (item.annotatedBitmap != null) ? item.annotatedBitmap : item.originalBitmap;
             if (shown != null) {
                 cardImages[i].setImageBitmap(shown);
@@ -725,7 +730,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 String state = nowChecked ? "已补勾 [√]" : "已取消";
-                Toast.makeText(this, rec.getName() + " · " + shift + " (" + cell + ") -> " + state + " (已累计为训练样本)", Toast.LENGTH_SHORT).show();
+                StyledToast.show(this, rec.getName() + " · " + shift + " (" + cell + ") -> " + state + " (已累计为训练样本)", Toast.LENGTH_SHORT);
             }
         }
     }
@@ -792,7 +797,7 @@ public class MainActivity extends AppCompatActivity {
                 setBusy(false, doneNames.isEmpty() ? "图片读取失败" : "已导入 " + doneNames.size() + " 张图片");
 
                 if (failedCount == 0 && skipped == 0 && unmergedNames.isEmpty()) {
-                    Toast.makeText(MainActivity.this, msg.toString(), Toast.LENGTH_LONG).show();
+                    StyledToast.show(MainActivity.this, msg.toString(), Toast.LENGTH_LONG);
                     return;
                 }
                 // 有读取失败、超出页数被忽略或无法合并导出的图片时用弹窗完整说明，避免 Toast 截断漏看
@@ -827,7 +832,7 @@ public class MainActivity extends AppCompatActivity {
             cameraLauncher.launch(cameraImageUri);
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(this, "启动相机失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "启动相机失败: " + e.getMessage(), Toast.LENGTH_SHORT);
         }
     }
 
@@ -857,7 +862,7 @@ public class MainActivity extends AppCompatActivity {
             if (!newPlate.isEmpty()) record.setPlateNumber(newPlate);
             adapter.notifyItemChanged(position);
             updateSummaryText();
-            Toast.makeText(this, "已更新: " + record.getName() + " (" + record.getPlateNumber() + ")", Toast.LENGTH_SHORT).show();
+            StyledToast.show(this, "已更新: " + record.getName() + " (" + record.getPlateNumber() + ")", Toast.LENGTH_SHORT);
         });
         builder.setNegativeButton("取消", null);
         builder.show();
@@ -875,7 +880,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 第 1~3 页始终参与导出 (与原先一致)；第 4 页起只合并用户导入且 OCR 识别出序号的页面，
-     * 避免示例图或序号未知的照片按默认序号 1~39 错填到别人名下。
+     * 避免序号未知的照片按默认序号 1~39 错填到别人名下。
      */
     private boolean isExportPage(int pageIdx) {
         PageItem item = pageItems[pageIdx];
@@ -907,11 +912,16 @@ public class MainActivity extends AppCompatActivity {
         return new ArrayList<>(merged.values());
     }
 
-    private void updateStatsDisplay() {
+    private int countLoadedPages() {
         int loadedPages = 0;
         for (PageItem item : pageItems) {
             if (item.originalBitmap != null) loadedPages++;
         }
+        return loadedPages;
+    }
+
+    private void updateStatsDisplay() {
+        int loadedPages = countLoadedPages();
         tvStatPages.setText(loadedPages + " / " + pageItems.length + " 张");
 
         if (currentViewMode == 0) {
@@ -926,7 +936,7 @@ public class MainActivity extends AppCompatActivity {
             }
             tvStatMarks.setText(totalAllMarks + " 处");
             tvStatPersons.setText(attended + " / " + fullRoster.size() + " 人");
-            tvStatusBadge.setText("全部图片 (" + loadedPages + "张纵览)");
+            tvStatusBadge.setText(loadedPages > 0 ? "全部图片 (" + loadedPages + "张纵览)" : "等待导入表格照片");
         } else {
             PageItem item = pageItems[currentViewMode - 1];
             int attended = 0;
@@ -1061,11 +1071,11 @@ public class MainActivity extends AppCompatActivity {
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText("打钩识别结果", summaryText);
         cm.setPrimaryClip(clip);
-        Toast.makeText(this, "已复制 Excel 映射结果到剪贴板！", Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, "已复制 Excel 映射结果到剪贴板！", Toast.LENGTH_SHORT);
     }
 
     private void processExcelFilling(Uri userExcelUri) {
-        Toast.makeText(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT).show();
+        StyledToast.show(this, "正在按输入表格填入 1 并生成导出文件...", Toast.LENGTH_SHORT);
         setBusy(true, "正在执行按表填1并导出...");
 
         // 在主线程取好合并后的副本再交给后台，避免与界面上的补勾 / 取消同时读写各页记录
@@ -1086,7 +1096,7 @@ public class MainActivity extends AppCompatActivity {
                     // 自动将现场已核对通过的表格累计入训练数据库
                     autoRecordVerifiedPagesToDataset();
 
-                    Toast.makeText(MainActivity.this, "已按输入表格成功填入 " + result.filledMarksCount + " 处 1，正在调起导出！", Toast.LENGTH_LONG).show();
+                    StyledToast.show(MainActivity.this, "已按输入表格成功填入 " + result.filledMarksCount + " 处 1，正在调起导出！", Toast.LENGTH_LONG);
                     // 和原来导出表格完全一样，直接调起系统分享 / 微信 / WPS
                     ExcelExporter.shareFile(MainActivity.this, result.outputFile, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
                 } else {

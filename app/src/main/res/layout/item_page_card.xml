@@ -1,74 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 全部图片纵览模式下的单页卡片，由 MainActivity.buildPageViews() 按 pageItems 动态生成 -->
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    style="@style/Widget.Material3.CardView.Outlined"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="@color/card_bg"
-    app:cardCornerRadius="12dp"
-    app:strokeColor="@color/border">
+    android:background="@drawable/bg_card_hard"
+    android:orientation="vertical"
+    android:paddingBottom="@dimen/hard_shadow"
+    android:paddingEnd="@dimen/hard_shadow">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:paddingTop="10dp"
-            android:paddingBottom="8dp">
-
-            <TextView
-                android:id="@+id/tv_card_title"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/text_main"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tv_card_marks"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/bg_badge"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp"
-                android:text="未载入"
-                android:textColor="@color/checked_green"
-                android:textSize="11sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <ImageView
-            android:id="@+id/iv_card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:adjustViewBounds="true"
-            android:scaleType="fitCenter"
-            android:visibility="gone" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
 
         <TextView
-            android:id="@+id/tv_card_placeholder"
-            android:layout_width="match_parent"
-            android:layout_height="120dp"
-            android:layout_margin="12dp"
-            android:background="@color/surface_container"
-            android:gravity="center"
-            android:text="暂无图片 · 拍照或从相册导入"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            android:id="@+id/tv_card_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/text_main"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_card_marks"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_tag_strong"
+            android:fontFamily="sans-serif-condensed"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:text="未载入"
+            android:textColor="@color/on_selected"
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+
+    <!-- 标题与图片之间的粗分隔线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/stroke_regular"
+        android:background="@color/line" />
+
+    <ImageView
+        android:id="@+id/iv_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:padding="@dimen/stroke_regular"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tv_card_placeholder"
+        android:layout_width="match_parent"
+        android:layout_height="120dp"
+        android:layout_margin="12dp"
+        android:background="@drawable/bg_placeholder"
+        android:gravity="center"
+        android:text="暂无图片 · 拍照或从相册导入"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>

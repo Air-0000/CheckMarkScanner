@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 右上角溢出菜单背景：直角粗框 + 右下硬投影 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:left="@dimen/hard_shadow" android:top="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/shadow_hard" />
+        </shape>
+    </item>
+    <item android:bottom="@dimen/hard_shadow" android:right="@dimen/hard_shadow">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/bg_card" />
+            <stroke android:width="@dimen/stroke_bold" android:color="@color/line" />
+            <padding
+                android:bottom="7dp"
+                android:left="2dp"
+                android:right="5dp"
+                android:top="4dp" />
+        </shape>
+    </item>
+</layer-list>

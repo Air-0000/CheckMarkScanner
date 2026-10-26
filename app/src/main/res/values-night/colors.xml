@@ -1,0 +1,20 @@
+<resources>
+    <!-- 深色模式：黑底保留黄色强调，描边改为浅色，硬投影改为暗灰 -->
+    <color name="bg_page">#0E0E0E</color>
+    <color name="bg_card">#1A1A1A</color>
+    <color name="bg_sunken">#252525</color>
+    <color name="bar_bg">#000000</color>
+    <color name="bar_subtitle">#8E8C84</color>
+    <color name="line">#E6E4DC</color>
+    <color name="line_soft">#3E3E3B</color>
+    <color name="shadow_hard">#56544B</color>
+    <color name="text_main">#F3F2EC</color>
+    <color name="text_secondary">#ADABA2</color>
+    <color name="text_hint">#78766E</color>
+    <color name="selected_bg">#FFD60A</color>
+    <color name="on_selected">#111111</color>
+    <color name="disabled_bg">#262626</color>
+    <color name="disabled_text">#62605A</color>
+    <color name="danger">#FF5C6C</color>
+    <color name="ripple">#29FFFFFF</color>
+</resources>

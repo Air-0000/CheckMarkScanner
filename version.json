@@ -1,8 +1,8 @@
 {
-  "versionCode": 33,
-  "versionName": "2.6.5",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.5.apk",
-  "apkSize": "26.7MB",
-  "updateLog": "1. 相册一次最多可选 20 张照片（原来最多 5 张），按选择顺序依次填入第 1~20 页\n2. 导出时把所有导入照片的页面按序号合并，同一人在多张照片上的打钩都会填进表格\n3. 照片上的序号没认出来时会提示重拍，这一页不会被填到别人名下",
+  "versionCode": 34,
+  "versionName": "2.6.6",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.6.apk",
+  "apkSize": "25.6MB",
+  "updateLog": "1. 全新黑黄配色界面，并支持深色模式（跟随手机系统设置）\n2. 不再内置示例照片，打开后各页为空，直接拍照或从相册导入即可\n3. 导入后页面标题和标签显示识别出的序号范围；没认出序号的页会标「未识别」",
   "forceUpdate": false
 }

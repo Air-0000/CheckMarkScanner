@@ -1,0 +1,9 @@
+<resources>
+    <!-- 硬投影偏移：按下时卡片 / 按钮整体下沉这一段距离 -->
+    <dimen name="hard_shadow">3dp</dimen>
+    <dimen name="hard_shadow_large">5dp</dimen>
+    <dimen name="stroke_bold">2dp</dimen>
+    <dimen name="stroke_regular">1.5dp</dimen>
+    <dimen name="stroke_thin">1dp</dimen>
+    <dimen name="hazard_stripe_height">6dp</dimen>
+</resources>

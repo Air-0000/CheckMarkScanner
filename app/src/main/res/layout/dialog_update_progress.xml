@@ -3,32 +3,39 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="22dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/tv_progress_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="正在下载新版本安装包..."
-        android:textColor="@color/text_main"
-        android:textSize="15sp"
-        android:textStyle="bold" />
+        android:textAppearance="@style/TextAppearance.CheckMarkScanner.DialogTitle"
+        android:textSize="16sp" />
 
+    <!-- 粗框直角进度条 (bg_progress_hard) -->
     <ProgressBar
         android:id="@+id/pb_update_progress"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_height="18dp"
+        android:layout_marginTop="18dp"
         android:max="100"
-        android:progress="0" />
+        android:maxHeight="18dp"
+        android:minHeight="18dp"
+        android:progress="0"
+        android:progressDrawable="@drawable/bg_progress_hard" />
 
     <TextView
         android:id="@+id/tv_progress_status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="10dp"
+        android:fontFamily="sans-serif-condensed"
         android:text="准备连接下载服务器..."
         android:textColor="@color/text_secondary"
-        android:textSize="12sp" />
+        android:textSize="13sp" />
 </LinearLayout>

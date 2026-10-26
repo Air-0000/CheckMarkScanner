@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 开关类标签底色 (显示坐标 / 辅助网格)：打开时亮黄 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/disabled_bg" android:state_enabled="false" />
+    <item android:color="@color/hazard" android:state_checked="true" />
+    <item android:color="@color/bg_card" />
+</selector>

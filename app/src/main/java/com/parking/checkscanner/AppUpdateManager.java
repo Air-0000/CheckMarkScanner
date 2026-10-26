@@ -17,6 +17,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -176,7 +177,7 @@ public class AppUpdateManager {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
 
         if (isManual) {
-            Toast.makeText(activity, "正在连接更新服务器，请稍候...", Toast.LENGTH_SHORT).show();
+            StyledToast.show(activity, "正在连接更新服务器，请稍候...", Toast.LENGTH_SHORT);
         }
 
         List<String> sources = getUpdateSources(activity);
@@ -331,7 +332,7 @@ public class AppUpdateManager {
     public void downloadAndInstall(Activity activity, UpdateInfo info) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
         if (info.apkUrl == null || info.apkUrl.isEmpty()) {
-            Toast.makeText(activity, "更新下载地址无效", Toast.LENGTH_SHORT).show();
+            StyledToast.show(activity, "更新下载地址无效", Toast.LENGTH_SHORT);
             return;
         }
 
@@ -418,7 +419,7 @@ public class AppUpdateManager {
                     if (progressDialog.isShowing()) {
                         progressDialog.dismiss();
                     }
-                    Toast.makeText(activity, "下载完成，正在准备安装...", Toast.LENGTH_SHORT).show();
+                    StyledToast.show(activity, "下载完成，正在准备安装...", Toast.LENGTH_SHORT);
                     installApk(activity, apkFile);
                 });
 
@@ -479,7 +480,7 @@ public class AppUpdateManager {
      */
     public static void installApk(Activity activity, File apkFile) {
         if (activity == null || apkFile == null || !apkFile.exists()) {
-            Toast.makeText(activity, "安装文件不存在，请重新下载", Toast.LENGTH_SHORT).show();
+            StyledToast.show(activity, "安装文件不存在，请重新下载", Toast.LENGTH_SHORT);
             return;
         }
 
@@ -496,7 +497,7 @@ public class AppUpdateManager {
                             Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, packageUri);
                             activity.startActivity(intent);
                         } catch (Exception e) {
-                            Toast.makeText(activity, "打开设置失败，请手动到设置开启安装权限", Toast.LENGTH_LONG).show();
+                            StyledToast.show(activity, "打开设置失败，请手动到设置开启安装权限", Toast.LENGTH_LONG);
                         }
                     })
                     .setNegativeButton("取消", null)
@@ -523,7 +524,7 @@ public class AppUpdateManager {
 
             activity.startActivity(intent);
         } catch (Exception e) {
-            Toast.makeText(activity, "启动安装器失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            StyledToast.show(activity, "启动安装器失败: " + e.getMessage(), Toast.LENGTH_LONG);
         }
     }
 
@@ -540,21 +541,27 @@ public class AppUpdateManager {
         etUrl.setMaxLines(3);
         etUrl.setPadding(30, 20, 30, 20);
 
+        // 输入框左右留白，与对话框正文对齐，不贴着对话框描边
+        FrameLayout urlContainer = new FrameLayout(activity);
+        int sidePadding = Math.round(20 * activity.getResources().getDisplayMetrics().density);
+        urlContainer.setPadding(sidePadding, 0, sidePadding, 0);
+        urlContainer.addView(etUrl);
+
         new AlertDialog.Builder(activity)
             .setTitle("⚙️ 配置更新服务地址")
             .setMessage("默认同时检测局域网服务器、国内中转和公网备用地址，优先用局域网，其次国内中转。\n如需指定其他 version.json 地址 (会最优先使用)，可在此填写：")
-            .setView(etUrl)
+            .setView(urlContainer)
             .setPositiveButton("保存并检查", (dialog, which) -> {
                 String input = etUrl.getText().toString().trim();
                 if (!input.isEmpty()) {
                     setUpdateUrl(activity, input);
-                    Toast.makeText(activity, "已保存更新源，正在检测...", Toast.LENGTH_SHORT).show();
+                    StyledToast.show(activity, "已保存更新源，正在检测...", Toast.LENGTH_SHORT);
                     checkUpdate(activity, true);
                 }
             })
             .setNeutralButton("恢复默认", (dialog, which) -> {
                 setUpdateUrl(activity, DEFAULT_UPDATE_URL);
-                Toast.makeText(activity, "已重置为官方默认源", Toast.LENGTH_SHORT).show();
+                StyledToast.show(activity, "已重置为官方默认源", Toast.LENGTH_SHORT);
             })
             .setNegativeButton("取消", null)
             .show();

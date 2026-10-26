@@ -1,24 +1,28 @@
 <resources>
-    <color name="primary">#1B5E20</color>
-    <color name="primary_dark">#0E3813</color>
-    <color name="primary_light">#E8F5E9</color>
-    <color name="accent">#4CAF50</color>
-    <color name="accent_light">#C8E6C9</color>
-    <color name="text_main">#212121</color>
-    <color name="text_secondary">#757575</color>
-    <color name="background">#F5F7FA</color>
-    <color name="card_bg">#FFFFFF</color>
-    <color name="border">#E0E0E0</color>
-    <color name="checked_green">#2E7D32</color>
-    <color name="checked_bg">#DCEDC8</color>
-    <color name="unchecked_bg">#F5F5F5</color>
-    <color name="chip_border">#BDBDBD</color>
-    <color name="badge_bg">#E3F2FD</color>
-    <color name="badge_text">#1565C0</color>
-    <color name="toolbar_subtitle">#C8E6C9</color>
-    <color name="surface_container_lowest">#FFFFFF</color>
-    <color name="surface_container_low">#F7F9F7</color>
-    <color name="surface_container">#F1F4F1</color>
-    <color name="surface_container_high">#EBEFEB</color>
-    <color name="surface_container_highest">#E4E9E4</color>
+    <!-- 黄黑警示风：固定色，浅色 / 深色模式通用 -->
+    <color name="ink">#111111</color>
+    <color name="hazard">#FFD60A</color>
+    <color name="hazard_pressed">#E8BF00</color>
+    <color name="on_hazard">#111111</color>
+
+    <!-- 随模式切换的语义色 (深色值见 values-night/colors.xml) -->
+    <color name="bg_page">#F6F4EC</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="bg_sunken">#ECE9DF</color>
+    <color name="bar_bg">#111111</color>
+    <color name="bar_subtitle">#B4B2A8</color>
+    <!-- 粗描边与硬投影 -->
+    <color name="line">#111111</color>
+    <color name="line_soft">#CDC9BC</color>
+    <color name="shadow_hard">#111111</color>
+    <color name="text_main">#111111</color>
+    <color name="text_secondary">#57554D</color>
+    <color name="text_hint">#8F8C82</color>
+    <!-- 选中态 (页面标签 / 视图切换)：浅色为黑底黄字，深色为黄底黑字 -->
+    <color name="selected_bg">#111111</color>
+    <color name="on_selected">#FFD60A</color>
+    <color name="disabled_bg">#E3E0D6</color>
+    <color name="disabled_text">#9E9B91</color>
+    <color name="danger">#C8102E</color>
+    <color name="ripple">#1F111111</color>
 </resources>

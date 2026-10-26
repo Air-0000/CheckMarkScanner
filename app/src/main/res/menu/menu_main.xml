@@ -8,11 +8,6 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_reload"
-        android:title="重新载入示例图"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/action_check_update"
         android:title="检查更新"
         app:showAsAction="never" />
