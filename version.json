@@ -1,8 +1,8 @@
 {
-  "versionCode": 30,
-  "versionName": "2.6.2",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.2.apk",
+  "versionCode": 31,
+  "versionName": "2.6.3",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.3.apk",
   "apkSize": "26.7MB",
-  "updateLog": "1. 不在岗亭 Wi‑Fi 时也能快速更新：自动改走国内线路下载，无需任何设置\n2. 更新线路自动切换：局域网 → 国内中转 → 公网备用，某条不通时自动换下一条\n3. 修复「更新服务器设置」里的地址可能被误重置的问题",
+  "updateLog": "1. 检查更新更快：同时检测局域网、国内中转和公网备用线路，自动选用最合适的一条，不在岗亭时不再等待\n2. 之前手动填过中转或公网更新地址的手机，会自动恢复为默认设置，在岗亭里也能走局域网快速下载",
   "forceUpdate": false
 }
