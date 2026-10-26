@@ -11,7 +11,9 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
@@ -28,9 +30,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -61,12 +67,22 @@ public class AppUpdateManager {
     public static final String PUBLIC_UPDATE_URL =
         "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
 
+    // 定 Funnel 端口前曾给出的不带 :8443 的地址 (443 仅 tailnet 可见，公网连不上)，当作内置地址处理
+    private static final String MISTAKEN_PUBLIC_URL =
+        "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net/version.json";
+
     // 局域网地址在外网必然连不上，用短超时尽快切到公网源
     private static final int LAN_CONNECT_TIMEOUT_MS = 3000;
     private static final int PUBLIC_CONNECT_TIMEOUT_MS = 8000;
+    // 同时检测各更新源的总时限 (单个源的连接 + 读取超时之和以内)
+    private static final long RACE_MAX_MS = 15000;
+
+    private static final String TAG = "AppUpdateManager";
 
     private static AppUpdateManager instance;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // 检测更新时同时请求各更新源用的线程池
+    private final ExecutorService raceExecutor = Executors.newCachedThreadPool();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public static synchronized AppUpdateManager getInstance() {
@@ -101,7 +117,11 @@ public class AppUpdateManager {
     public static String getUpdateUrl(Context context) {
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String url = sp.getString(KEY_UPDATE_URL, DEFAULT_UPDATE_URL);
-        if (UpdateSourceResolver.isLegacyUrl(url)) {
+        // 填的若是内置地址 (旧版本在外网需手动填一次中转 / Funnel 地址)，一律回到默认顺序
+        // 局域网 → 中转 → Funnel，避免在局域网里也先走中转或海外线路
+        boolean builtIn = UpdateSourceResolver.matchesAny(url,
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, MISTAKEN_PUBLIC_URL);
+        if (UpdateSourceResolver.isLegacyUrl(url) || (builtIn && !DEFAULT_UPDATE_URL.equals(url))) {
             url = DEFAULT_UPDATE_URL;
             sp.edit().putString(KEY_UPDATE_URL, url).apply();
         }
@@ -162,19 +182,8 @@ public class AppUpdateManager {
         List<String> sources = getUpdateSources(activity);
 
         executor.execute(() -> {
-            // 依次尝试各更新源 (局域网优先，外网时自动改走公网 Funnel)，取第一个成功的
-            UpdateInfo found = null;
             StringBuilder errors = new StringBuilder();
-            for (String source : sources) {
-                try {
-                    found = fetchUpdateInfo(activity, source);
-                    break;
-                } catch (Exception e) {
-                    errors.append(source).append(" -> ").append(e.getMessage()).append('\n');
-                }
-            }
-
-            final UpdateInfo info = found;
+            final UpdateInfo info = raceUpdateSources(activity, sources, errors);
             mainHandler.post(() -> {
                 if (activity.isFinishing() || activity.isDestroyed()) return;
 
@@ -196,7 +205,59 @@ public class AppUpdateManager {
     }
 
     /**
-     * 从单个更新源读取 version.json (在后台线程调用)，失败抛出异常以便尝试下一个源
+     * 同时向所有更新源请求 version.json，按优先级选用 (规则见 UpdateSourceResolver.pickSource)：
+     * 局域网 1 秒内回应就用局域网，否则优先国内中转，再 Funnel。
+     * 在后台线程调用；全部失败返回 null，失败原因追加到 errors。未被选中的请求各自超时结束，结果丢弃。
+     */
+    private UpdateInfo raceUpdateSources(Context context, List<String> sources, StringBuilder errors) {
+        int n = sources.size();
+        int[] states = new int[n];
+        UpdateInfo[] infos = new UpdateInfo[n];
+        String[] failures = new String[n];
+        BlockingQueue<Integer> finished = new LinkedBlockingQueue<>();
+        for (int i = 0; i < n; i++) {
+            final int idx = i;
+            raceExecutor.execute(() -> {
+                try {
+                    infos[idx] = fetchUpdateInfo(context, sources.get(idx));
+                } catch (Exception e) {
+                    failures[idx] = e.getMessage();
+                }
+                finished.offer(idx);
+            });
+        }
+
+        long start = SystemClock.elapsedRealtime();
+        while (true) {
+            long elapsed = SystemClock.elapsedRealtime() - start;
+            int pick = UpdateSourceResolver.pickSource(sources, states, elapsed);
+            if (pick >= 0) {
+                Log.i(TAG, "更新源选用 " + sources.get(pick) + "，用时 " + elapsed + "ms，状态 " + Arrays.toString(states));
+                return infos[pick];
+            }
+            if (pick == UpdateSourceResolver.PICK_NONE || elapsed > RACE_MAX_MS) {
+                for (int i = 0; i < n; i++) {
+                    errors.append(sources.get(i)).append(" -> ")
+                          .append(states[i] == UpdateSourceResolver.STATE_FAILED ? failures[i] : "超时").append('\n');
+                }
+                Log.w(TAG, "所有更新源均不可用，用时 " + elapsed + "ms:\n" + errors);
+                return null;
+            }
+            long wait = UpdateSourceResolver.nextDecisionDelay(sources, states, elapsed, RACE_MAX_MS - elapsed);
+            try {
+                Integer idx = finished.poll(wait, TimeUnit.MILLISECONDS);
+                if (idx != null) {
+                    states[idx] = (infos[idx] != null) ? UpdateSourceResolver.STATE_OK : UpdateSourceResolver.STATE_FAILED;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+    }
+
+    /**
+     * 从单个更新源读取 version.json (在后台线程调用)，失败抛出异常
      */
     private UpdateInfo fetchUpdateInfo(Context context, String sourceUrl) throws Exception {
         HttpURLConnection conn = null;
@@ -481,7 +542,7 @@ public class AppUpdateManager {
 
         new AlertDialog.Builder(activity)
             .setTitle("⚙️ 配置更新服务地址")
-            .setMessage("默认依次尝试：局域网服务器 → 国内中转 → 公网备用地址。\n如需指定其他 version.json 地址 (会最先尝试)，可在此填写：")
+            .setMessage("默认同时检测局域网服务器、国内中转和公网备用地址，优先用局域网，其次国内中转。\n如需指定其他 version.json 地址 (会最优先使用)，可在此填写：")
             .setView(etUrl)
             .setPositiveButton("保存并检查", (dialog, which) -> {
                 String input = etUrl.getText().toString().trim();

@@ -84,14 +84,15 @@ public class ParkingRecord implements Serializable {
     }
 
     /**
-     * Excel 中的行号。
-     * 第1行: 标题
-     * 第2行: 星期表头
-     * 第3行: 白/夜表头
-     * 第4行起: 序号 1 数据
+     * 内置《停车情况》模板中的行号。
+     * 第1~3行: 标题 (合并)
+     * 第4行: 序号/姓名/车牌 + 日期
+     * 第5行: 星期表头
+     * 第6行: 白/夜表头
+     * 第7行起: 序号 1 数据
      */
     public int getExcelRow() {
-        return index + 3;
+        return index + 6;
     }
 
     /**
