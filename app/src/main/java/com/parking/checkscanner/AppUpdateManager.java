@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -100,6 +101,7 @@ public class AppUpdateManager {
         public String apkSize;
         public String updateLog;
         public boolean forceUpdate;
+        public String sha256; // 安装包 SHA-256 (十六进制)，为空时不校验
         public String sourceUrl; // 本次检测成功的 version.json 地址，决定安装包从哪条线路下载
 
         public static UpdateInfo fromJson(String jsonStr) throws Exception {
@@ -111,6 +113,7 @@ public class AppUpdateManager {
             info.apkSize = json.optString("apkSize", "");
             info.updateLog = json.optString("updateLog", "优化系统性能并修复若干已知问题。");
             info.forceUpdate = json.optBoolean("forceUpdate", false);
+            info.sha256 = json.optString("sha256", "").trim();
             return info;
         }
     }
@@ -319,9 +322,12 @@ public class AppUpdateManager {
             builder.setNegativeButton("稍后再说", null);
         }
 
-        builder.setNeutralButton("更新设置", (dialog, which) -> {
-            showConfigureUrlDialog(activity);
-        });
+        // 强制更新时不给「更新设置」：点它会关掉本弹窗，等于绕过强制更新
+        if (!info.forceUpdate) {
+            builder.setNeutralButton("更新设置", (dialog, which) -> {
+                showConfigureUrlDialog(activity);
+            });
+        }
 
         builder.show();
     }
@@ -350,6 +356,8 @@ public class AppUpdateManager {
             .setCancelable(false)
             .setNegativeButton("取消下载", (dialog, which) -> {
                 isCancelled.set(true);
+                // 强制更新不能取消了事，回到更新弹窗
+                if (info.forceUpdate) showUpdateDialog(activity, info);
             })
             .create();
 
@@ -378,6 +386,7 @@ public class AppUpdateManager {
                 }
 
                 fos = new FileOutputStream(apkFile);
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
                 byte[] buffer = new byte[8192];
                 int len;
                 long downloaded = 0;
@@ -390,6 +399,7 @@ public class AppUpdateManager {
                     }
 
                     fos.write(buffer, 0, len);
+                    digest.update(buffer, 0, len);
                     downloaded += len;
 
                     long now = System.currentTimeMillis();
@@ -415,6 +425,17 @@ public class AppUpdateManager {
 
                 fos.flush();
 
+                // 连接中途断开时读取也可能正常结束，残缺的安装包不能交给系统安装器
+                if (totalLength > 0 && downloaded != totalLength) {
+                    apkFile.delete();
+                    throw new Exception(String.format("安装包下载不完整 (%d / %d 字节)，网络可能中断", downloaded, totalLength));
+                }
+                if (info.sha256 != null && !info.sha256.isEmpty()
+                        && !info.sha256.equalsIgnoreCase(toHex(digest.digest()))) {
+                    apkFile.delete();
+                    throw new Exception("安装包校验失败 (SHA-256 不一致)，文件可能损坏或被篡改");
+                }
+
                 mainHandler.post(() -> {
                     if (progressDialog.isShowing()) {
                         progressDialog.dismiss();
@@ -433,7 +454,10 @@ public class AppUpdateManager {
                             .setTitle("下载失败")
                             .setMessage("更新安装包下载出错：" + e.getMessage() + "\n\n您可以检查网络连接后重试。")
                             .setPositiveButton("重试", (dialog, which) -> downloadAndInstall(activity, info))
-                            .setNegativeButton("取消", null)
+                            .setNegativeButton("取消", (dialog, which) -> {
+                                if (info.forceUpdate) showUpdateDialog(activity, info);
+                            })
+                            .setCancelable(!info.forceUpdate)
                             .show();
                     }
                 });
@@ -445,6 +469,14 @@ public class AppUpdateManager {
                 } catch (Exception ignored) {}
             }
         });
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     /**
