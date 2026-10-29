@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /**
  * 更新源与安装包下载地址解析 (纯 Java，无 Android 依赖)：
- * 1. 按「用户自定义 → 局域网 → 国内中转 → 公网 Funnel」的优先级生成 version.json 地址，
+ * 1. 按「用户自定义 → 局域网 → 国内中转 → 公网 Funnel → Gitee」的优先级生成 version.json 地址，
  *    检测时同时请求，按优先级与等待窗口选用 (pickSource)
  * 2. 安装包：从局域网检测成功时走局域网；否则先走 version.json 里的 apkUrl
  *    (服务器按来源给外网请求下发最快的国内中转地址)，失败再回退到检测成功的那台服务器
@@ -86,7 +86,7 @@ public final class UpdateSourceResolver {
     public static final long REMOTE_GRACE_MS = 4000;
 
     /**
-     * 同时请求所有更新源时决定用哪个 (sources 按优先级排列：自定义 → 局域网 → 国内中转 → Funnel)。
+     * 同时请求所有更新源时决定用哪个 (sources 按优先级排列：自定义 → 局域网 → 国内中转 → Funnel → Gitee)。
      * 某个更优先的源仍在请求中且未超过它的等待窗口时继续等待；否则取已成功的源中优先级最高的。
      * 例：局域网 1 秒内回应就用局域网，否则优先中转 (4 秒内)，再 Funnel。
      *
