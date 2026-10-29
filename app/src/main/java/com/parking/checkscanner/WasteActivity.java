@@ -132,21 +132,30 @@ public class WasteActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         executor.shutdownNow();
-        // 模型约 11MB，离开本页即释放 (在识别线程上关，避免关在识别途中)
+        // 两个模型共约 30MB，离开本页即释放 (在识别线程上关，避免关在识别途中)
         new Thread(() -> {
             try {
                 executor.awaitTermination(30, java.util.concurrent.TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {}
-            if (handwritingRecognizer != null) handwritingRecognizer.close();
+            for (PaddleTextRecognizer model : handwritingModels) model.close();
         }).start();
     }
 
-    // 手写识别模型首次识别时在后台线程加载，之后各张照片复用
-    private PaddleTextRecognizer handwritingRecognizer;
+    // 手写识别模型首次识别时在后台线程加载，之后各张照片复用 (加载失败的半途状态不保留)
+    private final List<PaddleTextRecognizer> handwritingModels = new ArrayList<>();
 
-    private PaddleTextRecognizer getHandwritingRecognizer() throws Exception {
-        if (handwritingRecognizer == null) handwritingRecognizer = new PaddleTextRecognizer(this);
-        return handwritingRecognizer;
+    private List<PaddleTextRecognizer> getHandwritingModels() throws Exception {
+        if (handwritingModels.isEmpty()) {
+            List<PaddleTextRecognizer> loaded = new ArrayList<>();
+            try {
+                for (String[] m : PaddleTextRecognizer.WASTE_MODELS) loaded.add(new PaddleTextRecognizer(this, m[0], m[1]));
+            } catch (Exception e) {
+                for (PaddleTextRecognizer model : loaded) model.close();
+                throw e;
+            }
+            handwritingModels.addAll(loaded);
+        }
+        return handwritingModels;
     }
 
     private void setupLaunchers() {
@@ -400,9 +409,9 @@ public class WasteActivity extends AppCompatActivity {
         executor.execute(() -> {
             List<WastePage> done = new ArrayList<>();
             int failed = 0;
-            PaddleTextRecognizer handwriting;
+            List<PaddleTextRecognizer> handwriting;
             try {
-                handwriting = getHandwritingRecognizer();
+                handwriting = getHandwritingModels();
             } catch (Exception e) {
                 Log.e(TAG, "加载手写识别模型失败: " + e.getMessage(), e);
                 mainHandler.post(() -> {

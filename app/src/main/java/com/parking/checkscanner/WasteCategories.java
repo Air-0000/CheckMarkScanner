@@ -44,11 +44,13 @@ public class WasteCategories {
         public final String value;
         public final boolean needsCheck;
         public final boolean matched; // 对上了清单 (或别名) 里的一项
+        public final float score; // 与最像一项的相似度 (0~1)
 
-        Match(String value, boolean needsCheck, boolean matched) {
+        Match(String value, boolean needsCheck, boolean matched, float score) {
             this.value = value;
             this.needsCheck = needsCheck;
             this.matched = matched;
+            this.score = score;
         }
     }
 
@@ -121,7 +123,7 @@ public class WasteCategories {
      */
     public Match match(int col, String raw) {
         String text = fixLookalikes(normalize(raw));
-        if (text.isEmpty()) return new Match("", false, false);
+        if (text.isEmpty()) return new Match("", false, false, 0);
 
         String best = null;
         float bestScore = 0;
@@ -139,8 +141,8 @@ public class WasteCategories {
                 best = alias[1];
             }
         }
-        if (best == null || bestScore < MIN_MATCH) return new Match(raw.trim(), true, false);
-        return new Match(best, bestScore < SURE_MATCH, true);
+        if (best == null || bestScore < MIN_MATCH) return new Match(raw.trim(), true, false, bestScore);
+        return new Match(best, bestScore < SURE_MATCH, true, bestScore);
     }
 
     static String normalize(String s) {

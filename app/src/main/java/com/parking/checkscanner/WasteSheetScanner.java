@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  * 手写《废料登记表》识别：
  * 1. 在照片上找出表格的横线与竖线 (允许倾斜与透视收窄，每条线单独拟合斜率)；
  * 2. 用印刷体表头 (日期 / 回仓部门 / ...) 的位置确定 8 列，表头下方的横线逐行切分；
- * 3. 抹掉表格线后逐格切出手写内容，用 PaddleOCR 识别模型读 (ML Kit 读不懂潦草手写)，再按列规整：
+ * 3. 抹掉表格线后逐格切出手写内容，用 PaddleOCR 识别模型 (两个模型合用) 读 (ML Kit 读不懂潦草手写)，再按列规整：
  *    日期 / 重量 / 时间取数字，部门 / 物品 / 地点 / 人员按固定类别清单就近纠正，读不准的格子标为需核对。
  */
 public class WasteSheetScanner {
@@ -89,9 +89,9 @@ public class WasteSheetScanner {
     }
 
     /**
-     * 识别一张废料登记表照片 (需在后台线程调用)。handwriting 为手写识别器，由调用方创建并在多张照片间复用
+     * 识别一张废料登记表照片 (需在后台线程调用)。handwriting 为手写识别器 (可多个模型合用)，由调用方创建并在多张照片间复用
      */
-    public static ScanResult scan(Bitmap bitmap, WasteCategories categories, PaddleTextRecognizer handwriting) {
+    public static ScanResult scan(Bitmap bitmap, WasteCategories categories, List<PaddleTextRecognizer> handwriting) {
         ScanResult result = new ScanResult();
         int w = bitmap.getWidth();
         int h = bitmap.getHeight();
@@ -130,12 +130,12 @@ public class WasteSheetScanner {
         try {
             for (int r = 0; r < grid.rowCount(); r++) {
                 for (int c = 0; c < WasteRecord.COL_COUNT; c++) {
-                    PaddleTextRecognizer.Result res = readCell(handwriting, clean, grid, r, c);
+                    PaddleTextRecognizer.Result res = readCell(handwriting, categories, clean, grid, r, c);
                     raw[r][c] = res.text;
                     conf[r][c] = res.confidence;
                 }
             }
-            for (Brace b : braces) readBraceText(handwriting, clean, grid, b, raw);
+            for (Brace b : braces) readBraceText(handwriting, categories, clean, grid, b, raw);
         } finally {
             clean.recycle();
         }
@@ -346,22 +346,50 @@ public class WasteSheetScanner {
      * 切出第 r 行第 c 列的格子 (外接矩形，左右各内缩一点，避开没抹干净的竖线——残留竖线会被读成 1)
      * 做手写识别；空格子或识别失败返回空结果
      */
-    private static PaddleTextRecognizer.Result readCell(PaddleTextRecognizer handwriting, Bitmap clean, Grid grid, int r, int c) {
+    private static PaddleTextRecognizer.Result readCell(List<PaddleTextRecognizer> handwriting, WasteCategories categories,
+                                                        Bitmap clean, Grid grid, int r, int c) {
         Bitmap cell = cropCell(clean, grid, r, c);
         if (cell == null) return EMPTY;
         try {
             if (inkRatio(cell) < MIN_INK_RATIO) return EMPTY;
-            PaddleTextRecognizer.Result res = handwriting.recognize(cell);
+            PaddleTextRecognizer.Result res = recognizeBest(handwriting, categories, c, cell);
             String text = res.text.trim();
+            // 只有标点符号 (如 _ . -) 的是笔画残渣
+            if (!text.matches(".*[\\p{L}\\p{N}].*")) return EMPTY;
             // 只读出一个符号且没把握的多半是残留线头 / 污点
             if (text.length() <= 1 && res.confidence < 0.7f && !text.matches("\\d")) return EMPTY;
             return new PaddleTextRecognizer.Result(text, res.confidence);
-        } catch (Exception e) {
-            Log.e(TAG, "手写识别异常: " + e.getMessage(), e);
-            return EMPTY;
         } finally {
             cell.recycle();
         }
+    }
+
+    /**
+     * 各模型分别识别，取更可信的一个：类别列 (部门 / 物品 / 地点 / 人员) 取与清单最像的，一样像时取置信度高的；
+     * 其余列 (日期 / 重量 / 时间) 取置信度高的。某个模型出错时跳过它
+     */
+    private static PaddleTextRecognizer.Result recognizeBest(List<PaddleTextRecognizer> handwriting, WasteCategories categories,
+                                                             int col, Bitmap image) {
+        PaddleTextRecognizer.Result best = EMPTY;
+        float bestScore = -1;
+        for (PaddleTextRecognizer model : handwriting) {
+            PaddleTextRecognizer.Result res;
+            try {
+                res = model.recognize(image);
+            } catch (Exception e) {
+                Log.e(TAG, "手写识别异常: " + e.getMessage(), e);
+                continue;
+            }
+            if (res.text.trim().isEmpty()) continue;
+            float score = WasteRecord.isCategoryColumn(col)
+                ? categories.match(col, res.text).score * 10 + res.confidence
+                : res.confidence;
+            if (score > bestScore) {
+                bestScore = score;
+                best = res;
+            }
+        }
+        return best;
     }
 
     /** 格子 (r, c) 的外接矩形，左右各内缩约 0.12 行高 (避开没抹干净的竖线)；太小返回 null */
@@ -383,7 +411,8 @@ public class WasteSheetScanner {
      * 括号那一栏的字常竖着一格写一个 (如名字)，单个字单独识别很不准：把写了字的格子按从上到下的顺序
      * 横着拼成一行再识别，结果记在 b.text
      */
-    private static void readBraceText(PaddleTextRecognizer handwriting, Bitmap clean, Grid grid, Brace b, String[][] raw) {
+    private static void readBraceText(List<PaddleTextRecognizer> handwriting, WasteCategories categories, Bitmap clean,
+                                      Grid grid, Brace b, String[][] raw) {
         List<Bitmap> parts = new ArrayList<>();
         for (int r = b.firstRow; r <= b.lastRow; r++) {
             if (raw[r][b.target].isEmpty()) continue;
@@ -411,13 +440,11 @@ public class WasteSheetScanner {
             p.recycle();
         }
         try {
-            PaddleTextRecognizer.Result res = handwriting.recognize(line);
+            PaddleTextRecognizer.Result res = recognizeBest(handwriting, categories, b.target, line);
             if (!res.text.trim().isEmpty()) {
                 b.text = res.text.trim();
                 b.confidence = res.confidence;
             }
-        } catch (Exception e) {
-            Log.e(TAG, "括号栏识别异常: " + e.getMessage(), e);
         } finally {
             line.recycle();
         }

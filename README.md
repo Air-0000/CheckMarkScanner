@@ -22,7 +22,7 @@
 
 - 🧾 **手写《废料登记表》识别与导出**
   - 标题栏右上角「废料登记」进入：拍照或相册多选导入手写废料登记表，按表格线逐格识别 日期 / 回仓部门 / 物品名称 / 重量 / 回仓地点 / 跟进人员 / 跟进时间 / 保安人员。
-  - 手写内容用端侧 PaddleOCR 识别模型 (ONNX Runtime) 读取，部门、物品、地点、人员按**固定类别清单**就近纠正；没认准的格子在照片和列表里标黄，点一行即可对照该行截图修改。
+  - 手写内容用端侧 PaddleOCR 识别模型 (PP-OCRv4 mobile + PP-OCRv6 small 两个合用，ONNX Runtime) 读取，部门、物品、地点、人员按**固定类别清单**就近纠正；没认准的格子在照片和列表里标黄，点一行即可对照该行截图修改。
   - 核对时改过的值会记进清单，并记住「识别原文 → 正确值」，同一笔迹下次自动对上；清单也可在右上角菜单里整列编辑。
   - 「导出 Excel」生成《废料登记表》(与纸质表同列、末行重量合计) 及按物品 / 部门的重量汇总表，直接分享。
 
@@ -50,7 +50,7 @@ app/src/main/java/com/parking/checkscanner/
 ├── TableOcrScanner.java        # 端侧 OCR 引擎：ML Kit 离线文字识别、花名册与车牌号对齐
 ├── WasteActivity.java          # 废料登记表界面：导入识别、对照照片逐行修改、导出
 ├── WasteSheetScanner.java      # 废料表识别：表格线检测、逐格手写识别、按列规整与标黄
-├── PaddleTextRecognizer.java   # 端侧手写识别：PaddleOCR PP-OCRv4 识别模型 (assets/ppocr_rec.onnx)
+├── PaddleTextRecognizer.java   # 端侧手写识别：PaddleOCR 识别模型 (assets/ppocr_rec.onnx、ppocr_v6s_rec.onnx)
 ├── WasteCategories.java        # 废料表固定类别清单、形近字纠正与别名学习
 ├── WasteExcelExporter.java     # 废料登记表 .xlsx 生成 (登记表 + 汇总)
 ├── ExcelTemplateFiller.java    # Excel 智能填报：基于 Apache POI 针对用户输入表写入数字 1 并保留公式
