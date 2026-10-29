@@ -1,8 +1,8 @@
 {
-  "versionCode": 36,
-  "versionName": "2.6.8",
-  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.6.8.apk",
-  "apkSize": "25.6MB",
-  "updateLog": "1. 界面精简为三步：导入照片 → 对照照片点格子核对 → 导出 Excel，照片显示区域更大\n2. 去掉单元格坐标、辅助网格、灵敏度、统计方块、核对名单、复制文字报表和训练集等用不到的功能\n3. 页签下方显示本页打钩数；没认出序号的页用黄色标签提醒重拍",
+  "versionCode": 37,
+  "versionName": "2.7.0",
+  "apkUrl": "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/CheckMarkScanner_v2.7.0.apk",
+  "apkSize": "39.2MB",
+  "updateLog": "1. 新增「废料登记表」识别：标题栏右上角「废料登记」进入，拍照或相册导入手写废料登记表，逐格识别日期、部门、物品、重量、地点、人员和时间\n2. 部门、物品、地点、人员按固定清单自动纠正；没认准的格子标黄，点一行对照照片修改，改过的会记住\n3. 导出《废料登记表》Excel，附按物品、部门的重量汇总\n4. 安装包变大约 14MB (内置手写识别模型)",
   "forceUpdate": false
 }
