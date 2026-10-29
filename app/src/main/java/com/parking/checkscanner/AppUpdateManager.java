@@ -73,6 +73,11 @@ public class AppUpdateManager {
     private static final String MISTAKEN_PUBLIC_URL =
         "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net/version.json";
 
+    // 离线兜底更新源：Gitee 公开仓库里的 version.json (国内访问快，安装包放在该仓库的发行版附件)。
+    // 发版时手动同步，可能落后于台式机，所以排在最后，只在台式机三条线路都连不上时使用
+    public static final String GITEE_UPDATE_URL =
+        "https://gitee.com/Air-0000/checkmark-update/raw/master/version.json";
+
     // 局域网地址在外网必然连不上，用短超时尽快切到公网源
     private static final int LAN_CONNECT_TIMEOUT_MS = 3000;
     private static final int PUBLIC_CONNECT_TIMEOUT_MS = 8000;
@@ -122,9 +127,9 @@ public class AppUpdateManager {
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         String url = sp.getString(KEY_UPDATE_URL, DEFAULT_UPDATE_URL);
         // 填的若是内置地址 (旧版本在外网需手动填一次中转 / Funnel 地址)，一律回到默认顺序
-        // 局域网 → 中转 → Funnel，避免在局域网里也先走中转或海外线路
+        // 局域网 → 中转 → Funnel → Gitee，避免在局域网里也先走中转或海外线路
         boolean builtIn = UpdateSourceResolver.matchesAny(url,
-            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, MISTAKEN_PUBLIC_URL);
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, MISTAKEN_PUBLIC_URL, GITEE_UPDATE_URL);
         if (UpdateSourceResolver.isLegacyUrl(url) || (builtIn && !DEFAULT_UPDATE_URL.equals(url))) {
             url = DEFAULT_UPDATE_URL;
             sp.edit().putString(KEY_UPDATE_URL, url).apply();
@@ -133,11 +138,11 @@ public class AppUpdateManager {
     }
 
     /**
-     * 依次尝试的更新源：用户在「更新服务器设置」里指定的地址 → 局域网 → 国内中转 → 公网 Funnel
+     * 依次尝试的更新源：用户在「更新服务器设置」里指定的地址 → 局域网 → 国内中转 → 公网 Funnel → Gitee
      */
     public static List<String> getUpdateSources(Context context) {
         return UpdateSourceResolver.buildSources(getUpdateUrl(context),
-            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL);
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, GITEE_UPDATE_URL);
     }
 
     private static int connectTimeoutFor(String url) {
@@ -210,7 +215,7 @@ public class AppUpdateManager {
 
     /**
      * 同时向所有更新源请求 version.json，按优先级选用 (规则见 UpdateSourceResolver.pickSource)：
-     * 局域网 1 秒内回应就用局域网，否则优先国内中转，再 Funnel。
+     * 局域网 1 秒内回应就用局域网，否则优先国内中转，再 Funnel，台式机都连不上时用 Gitee。
      * 在后台线程调用；全部失败返回 null，失败原因追加到 errors。未被选中的请求各自超时结束，结果丢弃。
      */
     private UpdateInfo raceUpdateSources(Context context, List<String> sources, StringBuilder errors) {
@@ -581,7 +586,7 @@ public class AppUpdateManager {
 
         new AlertDialog.Builder(activity)
             .setTitle("⚙️ 配置更新服务地址")
-            .setMessage("默认同时检测局域网服务器、国内中转和公网备用地址，优先用局域网，其次国内中转。\n如需指定其他 version.json 地址 (会最优先使用)，可在此填写：")
+            .setMessage("默认同时检测局域网服务器、国内中转、公网备用地址和 Gitee，优先用局域网，其次国内中转，服务器都连不上时用 Gitee。\n如需指定其他 version.json 地址 (会最优先使用)，可在此填写：")
             .setView(urlContainer)
             .setPositiveButton("保存并检查", (dialog, which) -> {
                 String input = etUrl.getText().toString().trim();
