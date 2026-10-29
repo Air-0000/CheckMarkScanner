@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 端侧手写文字识别：PaddleOCR PP-OCRv4 中文识别模型 (assets/ppocr_rec.onnx，经 ONNX Runtime 运行)。
+ * 端侧手写文字识别：PaddleOCR 中文识别模型 (assets 里的 .onnx，经 ONNX Runtime 运行，见 WASTE_MODELS)。
  * 只做单行识别，不做文字检测：输入是已按表格线切好的单个格子。ML Kit 读不懂潦草手写，这个模型明显更好。
  * 预处理 / 解码与 RapidOCR 一致：高 48、宽按比例 (至少 320) 补零，像素归一化到 [-1, 1]，CTC 贪心解码。
  */
@@ -40,14 +40,23 @@ public class PaddleTextRecognizer implements AutoCloseable {
     private final OrtSession session;
     private final List<String> characters;
 
-    public PaddleTextRecognizer(Context context) throws Exception {
+    /**
+     * 废料表用的识别模型 (assets 里的模型与字典)：PP-OCRv4 mobile 与 PP-OCRv6 small 两个一起用，
+     * 每格各读一遍取更可信的结果。在同一张废料表的 150 格上：v4 单用对 128 格、v6 单用 138 格、两者合用 143 格 (App 内完整流程：v6 单用 137、合用 142)
+     */
+    public static final String[][] WASTE_MODELS = {
+        {"ppocr_rec.onnx", "ppocr_keys.txt"},
+        {"ppocr_v6s_rec.onnx", "ppocr_v6s_keys.txt"}
+    };
+
+    public PaddleTextRecognizer(Context context, String modelAsset, String keysAsset) throws Exception {
         env = OrtEnvironment.getEnvironment();
-        session = env.createSession(readAsset(context, "ppocr_rec.onnx"), new OrtSession.SessionOptions());
+        session = env.createSession(readAsset(context, modelAsset), new OrtSession.SessionOptions());
         // 序号 0 为 CTC 空白，字典之后追加空格
         characters = new ArrayList<>();
         characters.add("");
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                context.getAssets().open("ppocr_keys.txt"), StandardCharsets.UTF_8))) {
+                context.getAssets().open(keysAsset), StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) characters.add(line);
         }

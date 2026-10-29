@@ -30,6 +30,9 @@ public class WasteRecord {
     // 手写识别读出的原文 (核对时改了类别列，就把原文记成该值的别名)
     private final String[] raw = new String[COL_COUNT];
 
+    // 各列所属的纸上大括号编号 (同一页内从 1 起，0 为不在括号内)：同一括号的各行这一栏是同一个值，改一行即改全部
+    public final int[] braceGroup = new int[COL_COUNT];
+
     // 本行在照片上的位置 (用于点照片改行、画框)，-1 表示手动添加的行
     public int photoRow = -1;
 
