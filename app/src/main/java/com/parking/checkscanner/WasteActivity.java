@@ -538,6 +538,12 @@ public class WasteActivity extends AppCompatActivity {
                     if (!v.equals(target.get(c))) {
                         categories.learnAlias(c, target.getRaw(c), v);
                         categories.learn(c, v);
+                        // 纸上用大括号括住的几行这一栏是同一个值：一起改
+                        if (target.braceGroup[c] > 0) {
+                            for (WasteRecord other : page.records) {
+                                if (other != target && other.braceGroup[c] == target.braceGroup[c]) other.set(c, v, false);
+                            }
+                        }
                     }
                     target.set(c, v, false);
                 }
