@@ -22,6 +22,13 @@ android {
         }
     }
 
+    // .so 在安装包里压缩存放 (安装时解压)：手写识别引入的 ONNX Runtime 不压缩约 30MB，压缩后下载更新包小得多
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -47,4 +54,6 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
+    // 废料登记表手写识别 (PaddleOCR 识别模型)
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.19.2'
 }

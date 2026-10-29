@@ -83,6 +83,8 @@
         <!-- 右上角溢出菜单图标为警示黄 -->
         <item name="colorControlNormal">@color/hazard</item>
         <item name="colorControlHighlight">#33FFD60A</item>
+        <!-- 标题栏上的文字按钮 (切换废料登记) 同为警示黄 -->
+        <item name="actionMenuTextColor">@color/hazard</item>
     </style>
 
     <!-- 标题栏溢出菜单：直角粗框弹层；文字颜色显式指定，避免继承标题栏的深色覆盖 -->
