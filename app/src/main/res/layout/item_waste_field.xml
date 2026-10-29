@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 废料表改行弹窗里的一个字段：可直接输入，也可从下拉清单选 (清单为空时 WasteActivity 关掉下拉图标) -->
+<com.google.android.material.textfield.TextInputLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense.ExposedDropdownMenu"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="6dp"
+    app:boxCornerRadiusBottomEnd="0dp"
+    app:boxCornerRadiusBottomStart="0dp"
+    app:boxCornerRadiusTopEnd="0dp"
+    app:boxCornerRadiusTopStart="0dp"
+    app:boxStrokeColor="@color/line"
+    app:helperTextTextColor="@color/danger">
+
+    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        android:id="@+id/et_field"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:completionThreshold="1"
+        android:inputType="text"
+        android:maxLines="1"
+        android:textSize="15sp" />
+</com.google.android.material.textfield.TextInputLayout>

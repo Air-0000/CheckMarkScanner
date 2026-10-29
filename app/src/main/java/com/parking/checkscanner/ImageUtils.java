@@ -17,6 +17,23 @@ public class ImageUtils {
      * 安全读取图片：自动读取 EXIF 旋转角、等比降采样防止内存溢出、自动校正至竖向考勤表朝向
      */
     public static Bitmap loadAndNormalizeBitmap(Context context, Uri uri) {
+        return loadBitmap(context, uri, MAX_TARGET_DIMENSION, true);
+    }
+
+    /**
+     * 读取图片但不缩到 576 x 1024 (手写废料表需要保留笔画细节)：长边降采样到不超过 maxDim 的量级，
+     * 同样处理 EXIF 旋转与横图扶正
+     */
+    public static Bitmap loadHighResBitmap(Context context, Uri uri, int maxDim) {
+        Bitmap b = loadBitmap(context, uri, maxDim, false);
+        if (b == null || Math.max(b.getWidth(), b.getHeight()) <= maxDim) return b;
+        float s = (float) maxDim / Math.max(b.getWidth(), b.getHeight());
+        Bitmap scaled = Bitmap.createScaledBitmap(b, Math.round(b.getWidth() * s), Math.round(b.getHeight() * s), true);
+        if (scaled != b) b.recycle();
+        return scaled;
+    }
+
+    private static Bitmap loadBitmap(Context context, Uri uri, int maxTargetDimension, boolean normalize) {
         if (context == null || uri == null) return null;
         try {
             // 1. 获取原图物理尺寸
@@ -34,7 +51,7 @@ public class ImageUtils {
             // 2. 计算合理采样率 inSampleSize
             int inSampleSize = 1;
             int maxDim = Math.max(srcW, srcH);
-            while (maxDim / (inSampleSize * 2) >= MAX_TARGET_DIMENSION) {
+            while (maxDim / (inSampleSize * 2) >= maxTargetDimension) {
                 inSampleSize *= 2;
             }
 
@@ -89,7 +106,7 @@ public class ImageUtils {
 
             // 6. 统一标准化定标：将输入图像统一规范为 576 x 1024 标准基准尺寸
             // 彻底解决高分手机相机照片导致笔画像素暴涨、内存溢出与识别严重错位问题
-            if (oriented.getWidth() != 576 || oriented.getHeight() != 1024) {
+            if (normalize && (oriented.getWidth() != 576 || oriented.getHeight() != 1024)) {
                 Bitmap normalized = Bitmap.createScaledBitmap(oriented, 576, 1024, true);
                 if (normalized != oriented) {
                     oriented.recycle();

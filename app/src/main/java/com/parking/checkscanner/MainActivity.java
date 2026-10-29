@@ -168,6 +168,11 @@ public class MainActivity extends AppCompatActivity {
         // 启动时还没有图片，显示使用步骤
         switchViewMode(0);
 
+        // 上次停在废料登记表时，启动后直接回到那里 (返回键回到停车打钩)
+        if (savedInstanceState == null && WasteActivity.isLastMode(this)) {
+            startActivity(new Intent(this, WasteActivity.class));
+        }
+
         // 沿用以前版本自校准过的打钩对比度阈值 (没校准过时为默认值)
         CheckmarkDetector.setCalibratedMinContrast(TrainingDataCollector.getCalibratedMinContrast(this));
 
@@ -325,7 +330,9 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean onToolbarMenuItemClick(MenuItem menuItem) {
         int id = menuItem.getItemId();
-        if (id == R.id.action_check_update) {
+        if (id == R.id.action_waste_mode) {
+            startActivity(new Intent(this, WasteActivity.class));
+        } else if (id == R.id.action_check_update) {
             AppUpdateManager.getInstance().checkUpdate(this, true);
         } else if (id == R.id.action_update_url) {
             AppUpdateManager.getInstance().showConfigureUrlDialog(this);

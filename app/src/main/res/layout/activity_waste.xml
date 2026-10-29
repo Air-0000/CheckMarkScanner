@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_page">
+
+    <!-- 顶部标题栏：黑底黄字；检查更新 / 更新服务器设置 收进右上角菜单 -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
+        android:background="@color/bar_bg"
+        android:theme="@style/ThemeOverlay.CheckMarkScanner.Toolbar"
+        app:popupTheme="@style/ThemeOverlay.CheckMarkScanner.Popup"
+        app:menu="@menu/menu_waste"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:navigationContentDescription="返回停车打钩"
+        app:title="废料登记表"
+        app:titleTextAppearance="@style/TextAppearance.CheckMarkScanner.ToolbarTitle"
+        app:titleTextColor="@color/hazard"
+        app:subtitleTextAppearance="@style/TextAppearance.CheckMarkScanner.ToolbarSubtitle"
+        app:subtitleTextColor="@color/bar_subtitle" />
+
+    <!-- 标题栏下方的黄黑警示条纹 -->
+    <com.parking.checkscanner.HazardStripeView
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/hazard_stripe_height" />
+
+    <!-- 页面切换：已导入的各页 + 「＋ 新页」，可横向滑动 (由 WasteActivity 按 pages 动态生成)；还没有图片时隐藏 -->
+    <HorizontalScrollView
+        android:id="@+id/scroll_page_chips"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:scrollbars="none"
+        android:visibility="gone">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chip_group_pages"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="6dp"
+            app:selectionRequired="true"
+            app:singleLine="true"
+            app:singleSelection="true" />
+    </HorizontalScrollView>
+
+    <!-- 当前页状态：左侧标签为行数 / 待核对数 / 识别中 (后两者为黄底警示)，右侧为操作提示 -->
+    <LinearLayout
+        android:id="@+id/layout_page_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_status_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_tag_outline"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:textColor="@color/text_main"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_preview_tip"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="2"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- 识别 / 导出进行中的进度条 (空闲时 invisible 占位，避免布局跳动) -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progress_busy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:indeterminate="true"
+        android:visibility="invisible"
+        app:indicatorColor="@color/hazard"
+        app:trackColor="@color/shadow_hard"
+        app:trackThickness="4dp"
+        app:trackCornerRadius="0dp"
+        app:indicatorTrackGapSize="0dp" />
+
+    <ScrollView
+        android:id="@+id/scroll_view_preview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- 当前页照片 + 识别框：点击某一行修改。
+                 clickable 使其消费 ACTION_DOWN，才能收到完整手势让 GestureDetector 判定单击；
+                 上下滑动时外层 ScrollView 仍会拦截 -->
+            <ImageView
+                android:id="@+id/iv_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="false"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
+
+            <!-- 当前页还没有图片 (「＋ 新页」) 时的占位提示 -->
+            <TextView
+                android:id="@+id/tv_preview_empty"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:background="@drawable/bg_placeholder"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:padding="12dp"
+                android:text="这一页还没有图片\n拍照或从相册导入，放到这一页"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <!-- 识别出的各行：点一行修改；下方可手动添加一行 -->
+            <LinearLayout
+                android:id="@+id/ll_rows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/btn_add_row"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="2dp"
+                android:background="@drawable/bg_placeholder"
+                android:gravity="center"
+                android:text="＋ 手动添加一行"
+                android:textColor="@color/text_main"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <!-- 还没有导入任何图片时：三步使用说明 -->
+            <LinearLayout
+                android:id="@+id/layout_empty_steps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_box_hard"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="17dp"
+                android:paddingBottom="15dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="三步完成废料登记"
+                    android:textColor="@color/text_main"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="1" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="拍下整张《废料登记表》(含表头)，或从相册一次多选导入" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="2" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="黄底格子是没认准的内容：点照片上的那一行或下方列表修改，部门 / 物品等可从清单里选" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/Widget.CheckMarkScanner.EmptyStep">
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Number"
+                        android:text="3" />
+
+                    <TextView
+                        style="@style/Widget.CheckMarkScanner.EmptyStep.Text"
+                        android:text="点「导出 Excel」，生成废料登记表 (含按物品汇总) 后分享" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- 底部操作栏：拍照 / 相册多选 / 导出 Excel (粗框硬投影按钮，导出为黄色主按钮) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_bottom_bar"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_camera"
+            style="@style/Widget.CheckMarkScanner.Button.Hard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.85"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
+            android:text="拍照"
+            app:icon="@drawable/ic_camera"
+            app:iconGravity="textStart"
+            app:iconPadding="6dp"
+            app:iconSize="18dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_gallery"
+            style="@style/Widget.CheckMarkScanner.Button.Hard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
+            android:text="相册多选"
+            app:icon="@drawable/ic_photo_library"
+            app:iconGravity="textStart"
+            app:iconPadding="6dp"
+            app:iconSize="18dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_export"
+            style="@style/Widget.CheckMarkScanner.Button.Hard.Primary"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1.15"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingEnd="11dp"
+            android:text="导出 Excel"
+            app:icon="@drawable/ic_ios_share"
+            app:iconGravity="textStart"
+            app:iconPadding="6dp"
+            app:iconSize="18dp" />
+    </LinearLayout>
+
+</LinearLayout>
