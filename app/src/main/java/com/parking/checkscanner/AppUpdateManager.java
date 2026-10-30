@@ -55,26 +55,30 @@ public class AppUpdateManager {
     private static final String PREF_NAME = "update_config";
     private static final String KEY_UPDATE_URL = "update_url";
 
-    // 局域网更新源：岗亭内网 Wi-Fi 下最快 (台式机更新服务器)
+    // 局域网更新源：岗亭内网 Wi-Fi 下最快 (路由器上的更新服务)
     public static final String DEFAULT_UPDATE_URL =
-        "http://10.0.0.192:8080/version.json";
+        "http://10.0.0.1:8080/version.json";
 
-    // 国内中转更新源：同一台服务器经樱花 frp 国内节点 (长沙电信) 暴露的 HTTPS 地址，
+    // 国内中转更新源：路由器经樱花 frp 国内节点 (长沙电信) 暴露的 HTTPS 地址，
     // 证书为公共 CA 签发。手机不在局域网时优先使用，不必绕道海外
     public static final String RELAY_UPDATE_URL =
         "https://www.haa95d85b.nyat.app:19846/version.json";
 
-    // 公网兜底更新源：同一台服务器经 Tailscale Funnel 暴露的 HTTPS 地址 (入口在海外，较慢)，国内中转不可用时使用。
-    // 用 8443 端口：443 已被台式机上仅 tailnet 可见的另一个服务占用
+    // 公网兜底更新源：路由器经 Tailscale Funnel 暴露的 HTTPS 地址 (入口在海外，较慢)，国内中转不可用时使用
     public static final String PUBLIC_UPDATE_URL =
-        "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
+        "https://arthur.taild05f40.ts.net:8443/version.json";
 
-    // 定 Funnel 端口前曾给出的不带 :8443 的地址 (443 仅 tailnet 可见，公网连不上)，当作内置地址处理
+    // 2.7.0 及以前更新服务在台式机上，旧版本存下的这些地址已失效，当作内置地址处理 (重置为默认)
+    private static final String OLD_DESKTOP_LAN_URL =
+        "http://10.0.0.192:8080/version.json";
+    private static final String OLD_DESKTOP_PUBLIC_URL =
+        "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net:8443/version.json";
+    // 定 Funnel 端口前曾给出的不带 :8443 的地址 (443 仅 tailnet 可见，公网连不上)
     private static final String MISTAKEN_PUBLIC_URL =
         "https://constant-b850m-eagle-wifi6e-ice.taild05f40.ts.net/version.json";
 
     // 离线兜底更新源：Gitee 公开仓库里的 version.json (国内访问快，安装包放在该仓库的发行版附件)。
-    // 发版时手动同步，可能落后于台式机，所以排在最后，只在台式机三条线路都连不上时使用
+    // 发版时手动同步，可能落后于路由器，所以排在最后，只在路由器三条线路都连不上时使用
     public static final String GITEE_UPDATE_URL =
         "https://gitee.com/Air-0000/checkmark-update/raw/master/version.json";
 
@@ -129,7 +133,8 @@ public class AppUpdateManager {
         // 填的若是内置地址 (旧版本在外网需手动填一次中转 / Funnel 地址)，一律回到默认顺序
         // 局域网 → 中转 → Funnel → Gitee，避免在局域网里也先走中转或海外线路
         boolean builtIn = UpdateSourceResolver.matchesAny(url,
-            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, MISTAKEN_PUBLIC_URL, GITEE_UPDATE_URL);
+            DEFAULT_UPDATE_URL, RELAY_UPDATE_URL, PUBLIC_UPDATE_URL, GITEE_UPDATE_URL,
+            OLD_DESKTOP_LAN_URL, OLD_DESKTOP_PUBLIC_URL, MISTAKEN_PUBLIC_URL);
         if (UpdateSourceResolver.isLegacyUrl(url) || (builtIn && !DEFAULT_UPDATE_URL.equals(url))) {
             url = DEFAULT_UPDATE_URL;
             sp.edit().putString(KEY_UPDATE_URL, url).apply();
@@ -215,7 +220,7 @@ public class AppUpdateManager {
 
     /**
      * 同时向所有更新源请求 version.json，按优先级选用 (规则见 UpdateSourceResolver.pickSource)：
-     * 局域网 1 秒内回应就用局域网，否则优先国内中转，再 Funnel，台式机都连不上时用 Gitee。
+     * 局域网 1 秒内回应就用局域网，否则优先国内中转，再 Funnel，路由器都连不上时用 Gitee。
      * 在后台线程调用；全部失败返回 null，失败原因追加到 errors。未被选中的请求各自超时结束，结果丢弃。
      */
     private UpdateInfo raceUpdateSources(Context context, List<String> sources, StringBuilder errors) {
