@@ -61,14 +61,14 @@ public final class UpdateSourceResolver {
 
     /**
      * 是否为早期版本遗留、现已失效的更新地址 (需重置为默认)。
-     * 按主机名精确比较：旧实现 contains("10.0.0.1") 会误伤 10.0.0.192 等 10.0.0.1xx 地址。
+     * 早期 5005 端口的更新服务已停用；10.0.0.1 (路由器) 自 2.7.1 起在 8080 端口提供更新，不再算失效地址。
      */
     public static boolean isLegacyUrl(String url) {
         if (url == null || url.trim().isEmpty() || !url.trim().startsWith("http")) return true;
         if (url.contains("githubusercontent.com")) return true;
         try {
             URL u = new URL(url.trim());
-            return "10.0.0.1".equals(u.getHost()) || u.getPort() == 5005;
+            return u.getPort() == 5005;
         } catch (Exception e) {
             return true;
         }
