@@ -1,8 +1,9 @@
 {
-  "versionCode": 38,
-  "versionName": "2.7.1",
-  "apkUrl": "https://arthur.taild05f40.ts.net:8443/CheckMarkScanner_v2.7.1.apk",
+  "versionCode": 39,
+  "versionName": "2.7.2",
+  "apkUrl": "https://arthur.taild05f40.ts.net:8443/CheckMarkScanner_v2.7.2.apk",
   "apkSize": "57.1MB",
-  "updateLog": "1. 更新服务从台式机搬到岗亭路由器，台式机关机也能检测和下载更新\n2. 识别与导出功能没有变化",
-  "forceUpdate": false
+  "updateLog": "1. 序号未识别时自动放大左侧序号列重试\n2. 点击页面状态可手动确认起始序号，预览范围后保留打钩并导出，无需重拍\n3. 导出前逐页补齐未确认序号，避免遗漏；前3页也不再使用默认号误填\n4. 序号投票冲突时要求核对，不再根据导入位置猜号",
+  "forceUpdate": false,
+  "sha256": "bb4648cc9be16e764e0907b24b3c2a77a5f9e3c77045b8eac172c0eb7b417aa1"
 }
