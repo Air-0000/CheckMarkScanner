@@ -20,6 +20,8 @@ import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.EditText;
+import android.text.InputType;
 import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -70,12 +72,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         /**
-         * 按本页记录的实际序号刷新标题与标签：名单页 (第 1~3 页) 或 OCR 识别出序号的页显示序号范围，
+         * 按本页记录的实际序号刷新标题与标签：空白名单页或已识别 / 确认序号的页显示序号范围，
          * 其余页导入后未识别出序号时标注「序号未识别」(这类页导出时不合并)
          */
         void refreshLabels() {
             String page = "第" + pageId + "页";
-            if (!records.isEmpty() && (pageId <= ROSTER_PAGES || ocrStartIdx > 0)) {
+            if (!records.isEmpty() && (ocrStartIdx > 0 || originalBitmap == null && pageId <= ROSTER_PAGES)) {
                 int first = Integer.MAX_VALUE;
                 int last = Integer.MIN_VALUE;
                 for (ParkingRecord r : records) {
@@ -106,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
     // 页面总数，即相册一次最多可导入的图片张数 (从当前页起依次填入后续页面)
     private static final int MAX_PAGES = 20;
 
-    // 第 1~3 页对应名单序号 1~115，导出时始终参与；第 4 页起只有导入过图片且识别出序号的页才合并导出
+    // 空白的前 3 页提供基础名单；导入照片后所有页面均须确认序号才能导出。
     private static final int ROSTER_PAGES = 3;
 
     // 前 3 页对应名单序号 1~115，其余为空白页；启动时不载入任何图片 (页面标签按此数组动态生成，
@@ -309,6 +311,12 @@ public class MainActivity extends AppCompatActivity {
 
         btnGallery.setOnClickListener(v -> galleryLauncher.launch("image/*"));
         btnExport.setOnClickListener(v -> showExportSheet());
+        tvStatusBadge.setOnClickListener(v -> {
+            if (currentViewMode > 0) confirmPageNumber(currentViewMode - 1, false);
+        });
+        tvPreviewTip.setOnClickListener(v -> {
+            if (currentViewMode > 0) confirmPageNumber(currentViewMode - 1, false);
+        });
 
         // 单图预览手势监听：精准单格点击补勾/取消
         GestureDetector gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
@@ -412,7 +420,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 刷新页签与状态行：标签显示当前页打钩数，第 4 页起没认出序号的页用警示样式提醒重拍；
+     * 刷新页签与状态行：标签显示当前页打钩数，没认出序号的页用警示样式提示手动确认；
      * 还没有图片时隐藏整行页签和状态 (识别中仍显示状态)
      */
     private void updatePageStatus() {
@@ -429,12 +437,12 @@ public class MainActivity extends AppCompatActivity {
         } else if (!isExportPage(currentViewMode - 1)) {
             alert = true;
             tvStatusBadge.setText("序号未识别");
-            tvPreviewTip.setText("这页不会导出：请拍清左侧序号列后，在这一页重新拍照或导入");
+            tvPreviewTip.setText("点击这里填写本页起始序号，确认后即可导出，无需重拍");
         } else {
             int marks = 0;
             for (ParkingRecord r : item.records) marks += r.getCheckedCount();
             tvStatusBadge.setText(marks + " 处打钩");
-            tvPreviewTip.setText("对照照片核对黄框，点格子补勾 / 取消");
+            tvPreviewTip.setText("点此修改序号范围；点照片格子补勾 / 取消");
         }
         applyStatusBadgeStyle(alert);
     }
@@ -622,7 +630,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!unmergedNames.isEmpty()) {
                     if (msg.length() > 0) msg.append("\n\n");
                     msg.append(String.join("、", unmergedNames))
-                       .append(" 未识别出序号，导出时不会合并。请拍清左侧序号列后重新导入。");
+                       .append(" 未识别出序号，请点击页面的「序号未识别」填写起始序号，无需重新导入。");
                 }
                 if (failedCount > 0) {
                     if (msg.length() > 0) msg.append("\n\n");
@@ -655,12 +663,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 第 1~3 页始终参与导出 (与原先一致)；第 4 页起只合并用户导入且 OCR 识别出序号的页面，
+     * 空白名单页保持模板名单；所有已导入照片必须识别或手动确认起始序号，
      * 避免序号未知的照片按默认序号 1~39 错填到别人名下。
      */
     private boolean isExportPage(int pageIdx) {
         PageItem item = pageItems[pageIdx];
-        return pageIdx < ROSTER_PAGES || (item.fromUser && item.ocrStartIdx > 0);
+        return item.originalBitmap == null ? pageIdx < ROSTER_PAGES : item.ocrStartIdx > 0;
     }
 
     /**
@@ -697,9 +705,57 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * 导出入口：底部弹层先汇总合并结果，再选导出方式 (停车情况表副本填1 / 导入表格填1)
+     * 手动确认编号只改序号，保留照片、姓名车牌和所有打钩。
      */
+    private void confirmPageNumber(int pageIdx, boolean continueExport) {
+        if (rejectIfBusy()) return;
+        PageItem item = pageItems[pageIdx];
+        if (item.originalBitmap == null || item.records.isEmpty()) return;
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint("照片第一条人员记录的序号，例如 116");
+        if (item.ocrStartIdx > 0) input.setText(String.valueOf(item.ocrStartIdx));
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("第" + item.pageId + "页：确认起始序号")
+            .setMessage("请对照原照片第一行和最后一行。当前检测到 " + item.records.size()
+                + " 行，序号将连续递增；若行数不符，请重新裁剪照片后导入。已识别的打钩会保留。")
+            .setView(input).setNegativeButton("取消", null)
+            .setPositiveButton("预览范围", null).create();
+        dialog.setOnShowListener(v -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(w -> {
+            int start;
+            try { start = Integer.parseInt(input.getText().toString().trim()); }
+            catch (NumberFormatException e) { input.setError("请输入有效序号"); return; }
+            if (start < 1 || start > 500 || start + item.records.size() - 1 > 500) {
+                input.setError("序号范围须在 1～500 内"); return;
+            }
+            final int first = start;
+            new AlertDialog.Builder(this).setTitle("核对序号范围")
+                .setMessage("第" + item.pageId + "页：" + first + "～"
+                    + (first + item.records.size() - 1) + "，共 " + item.records.size()
+                    + " 行。与照片一致后再确认。")
+                .setNegativeButton("返回修改", null)
+                .setPositiveButton("一致，确认", (d, which) -> {
+                    for (int r = 0; r < item.records.size(); r++) item.records.get(r).setIndex(first + r);
+                    item.ocrStartIdx = first;
+                    item.refreshLabels();
+                    updatePageChips();
+                    switchViewMode(pageIdx + 1);
+                    dialog.dismiss();
+                    if (continueExport) showExportSheet();
+                }).show();
+        }));
+        dialog.show();
+    }
+
     private void showExportSheet() {
+        if (rejectIfBusy()) return;
+        for (int i = 0; i < pageItems.length; i++) {
+            if (pageItems[i].originalBitmap != null && !isExportPage(i)) {
+                switchViewMode(i + 1);
+                confirmPageNumber(i, true);
+                return;
+            }
+        }
         List<ParkingRecord> allRecords = getExportRecords();
         int attended = 0;
         int totalMarks = 0;

@@ -38,8 +38,6 @@ public class TableOcrScanner {
     private static final Pattern DIGIT_PATTERN = Pattern.compile("^\\s*(\\d{1,3})\\s*$");
     private static final Pattern CHINESE_NAME_PATTERN = Pattern.compile("^[\\u4e00-\\u9fa5]{2,4}$");
 
-    // 至少几个序号数字指向同一起始序号，才据此改写整页编号
-    private static final int MIN_START_VOTES = 2;
 
     public static class OcrResult {
         public String tableTitle = null;
@@ -67,6 +65,19 @@ public class TableOcrScanner {
             if (visionText != null) {
                 processVisionText(visionText, bitmap.getWidth(), bitmap.getHeight(), grid, fallbackRecords, result);
                 result.success = (result.recognizedItemCount > 0);
+                // 整图 OCR 容易把细小的序号并入姓名/表格线；单独放大左侧列再读。
+                if (result.detectedStartIdx < 1 && grid != null && !result.records.isEmpty()) {
+                    try {
+                        int start = retrySerialColumn(recognizer, bitmap, grid, result.records.size());
+                        if (start > 0) {
+                            result.detectedStartIdx = start;
+                            for (int r = 0; r < result.records.size(); r++) result.records.get(r).setIndex(start + r);
+                            result.success = true;
+                        }
+                    } catch (Exception retryError) {
+                        Log.w(TAG, "序号列重试失败，保留原识别结果", retryError);
+                    }
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "端侧 OCR 识别异常: " + e.getMessage(), e);
@@ -79,6 +90,48 @@ public class TableOcrScanner {
         }
 
         return result;
+    }
+
+    private static int retrySerialColumn(TextRecognizer recognizer, Bitmap bitmap,
+                                         CheckmarkDetector.TableGrid grid, int rows) throws Exception {
+        if (grid.shiftsX1 <= 0 || grid.hLines == null || grid.hLines.size() < 2) return -1;
+        int cropWidth = Math.min(bitmap.getWidth(), Math.max(1, (int)(grid.shiftsX1 * 0.48f)));
+        Bitmap crop = Bitmap.createBitmap(bitmap, 0, 0, cropWidth, bitmap.getHeight());
+        float scale = Math.min(3f, 3200f / bitmap.getHeight());
+        Bitmap enlarged = Bitmap.createScaledBitmap(crop, Math.max(1, Math.round(cropWidth * scale)),
+            Math.max(1, Math.round(bitmap.getHeight() * scale)), true);
+        try {
+            Text text = Tasks.await(recognizer.process(InputImage.fromBitmap(enlarged, 0)), 10, TimeUnit.SECONDS);
+            Map<Integer, Integer> rowNumbers = new TreeMap<>();
+            java.util.Set<Integer> ambiguous = new java.util.HashSet<>();
+            for (Text.TextBlock block : text.getTextBlocks()) {
+                for (Text.Line line : block.getLines()) {
+                    for (Text.Element element : line.getElements()) {
+                        Rect box = element.getBoundingBox();
+                        Matcher m = DIGIT_PATTERN.matcher(element.getText());
+                        if (box == null || !m.matches()) continue;
+                        int number = Integer.parseInt(m.group(1));
+                        if (number < 1 || number > 500) continue;
+                        int row = findRowIndex(Math.round(box.centerY() / scale), grid, bitmap.getHeight(), rows);
+                        if (row < 0 || row >= rows) continue;
+                        Integer previous = rowNumbers.put(row, number);
+                        if (previous != null && previous != number) ambiguous.add(row);
+                    }
+                }
+            }
+            Map<Integer, Integer> votes = new TreeMap<>();
+            for (Map.Entry<Integer, Integer> entry : rowNumbers.entrySet()) {
+                int start = entry.getValue() - entry.getKey();
+                if (!ambiguous.contains(entry.getKey()) && start > 0 && start + rows - 1 <= 500)
+                    votes.merge(start, 1, Integer::sum);
+            }
+            int start = SerialNumberResolver.resolve(votes);
+            Log.i(TAG, "放大序号列投票=" + votes + ", 起始号=" + start);
+            return start;
+        } finally {
+            if (enlarged != crop && enlarged != bitmap) enlarged.recycle();
+            if (crop != bitmap) crop.recycle();
+        }
     }
 
     private static void processVisionText(Text visionText, int width, int height,
@@ -206,7 +259,7 @@ public class TableOcrScanner {
 
         // 5. 按投票选出的起始序号整页连续编号 (纸质表序号逐行 +1，保证同页严格递增、不重复；漏检行自然补全)
         int defaultStartIdx = (fallbackRecords != null && !fallbackRecords.isEmpty()) ? fallbackRecords.get(0).getIndex() : 1;
-        int startIdx = resolveStartIndex(startVotes, defaultStartIdx);
+        int startIdx = SerialNumberResolver.resolve(startVotes);
         if (startIdx > 0) {
             outResult.detectedStartIdx = startIdx;
         } else {
@@ -229,25 +282,6 @@ public class TableOcrScanner {
         Log.i(TAG, "OCR 完成: 识别出 " + outResult.recognizedItemCount + " 项数据, 起始序号="
             + outResult.detectedStartIdx + " (投票 " + startVotes + ", 默认 " + defaultStartIdx + ")"
             + ", 推算页面=" + outResult.detectedPage + ", 标题=" + outResult.tableTitle);
-    }
-
-    /**
-     * 从「数字 - 行号」投票中选出本页起始序号：票数最多者胜出，平票取最接近页面默认起始序号者。
-     * 最高票不足 MIN_START_VOTES 时 (只有零星数字，可能是误读) 不足以改写整页编号，返回 -1。
-     */
-    private static int resolveStartIndex(Map<Integer, Integer> votes, int defaultStartIdx) {
-        int best = -1;
-        int bestCount = 0;
-        for (Map.Entry<Integer, Integer> e : votes.entrySet()) {
-            int start = e.getKey();
-            int count = e.getValue();
-            if (count > bestCount
-                || (count == bestCount && Math.abs(start - defaultStartIdx) < Math.abs(best - defaultStartIdx))) {
-                best = start;
-                bestCount = count;
-            }
-        }
-        return bestCount >= MIN_START_VOTES ? best : -1;
     }
 
     private static int findRowIndex(int centerY, CheckmarkDetector.TableGrid grid, int imgH, int rowCount) {
